@@ -138,7 +138,7 @@ const wallMaterial = new THREE.MeshStandardMaterial({
 // 벽 높이와 두께
 const wallHeight = 3;
 const wallThickness = 0.2;
-const roomSize = 10;
+const roomSize = 30; // 맵 크기 확대
 
 // 북쪽 벽
 const northWall = new THREE.Mesh(
@@ -275,10 +275,10 @@ function createEnemies(difficulty) {
 
     const settings = difficultySettings[difficulty];
     const positions = [
-        { x: -3, z: -3 },
-        { x: 3, z: 2 },
-        { x: -3, z: 3 },
-        { x: 3, z: -2 }
+        { x: -8, z: -8 },
+        { x: 8, z: 6 },
+        { x: -8, z: 8 },
+        { x: 8, z: -6 }
     ];
 
     for (let i = 0; i < settings.enemyCount; i++) {
@@ -489,13 +489,13 @@ function createGameObjects() {
     items = [];
 
     const item1 = createGoldenCoin();
-    item1.position.set(-2, 0.3, 2);
+    item1.position.set(-6, 0.3, 6);
     item1.itemName = '황금 코인';
     scene.add(item1);
     items.push(item1);
 
     const item2 = createGoldenCoin();
-    item2.position.set(2, 0.3, -2);
+    item2.position.set(6, 0.3, -6);
     item2.itemName = '황금 코인';
     scene.add(item2);
     items.push(item2);
@@ -503,7 +503,7 @@ function createGameObjects() {
     // 무기 생성
     if (weaponMesh) scene.remove(weaponMesh);
     weaponMesh = createSword();
-    weaponMesh.position.set(0, 0.4, 3);
+    weaponMesh.position.set(0, 0.4, 10);
     weaponMesh.rotation.z = Math.PI / 2; // 누워있는 상태
     weaponMesh.weaponName = '검';
     scene.add(weaponMesh);
@@ -511,7 +511,7 @@ function createGameObjects() {
     // 열쇠 생성
     if (keyMesh) scene.remove(keyMesh);
     keyMesh = new THREE.Mesh(keyGeometry, keyMaterial.clone());
-    keyMesh.position.set(-4, 0.25, 0);
+    keyMesh.position.set(-12, 0.25, 0);
     keyMesh.rotation.x = Math.PI;
     keyMesh.castShadow = true;
     keyMesh.keyName = '금색 열쇠';
@@ -520,7 +520,7 @@ function createGameObjects() {
     // 보물상자 생성
     if (treasureMesh) scene.remove(treasureMesh);
     treasureMesh = createTreasureChest();
-    treasureMesh.position.set(4, 0.6, 0);
+    treasureMesh.position.set(12, 0.6, 0);
     scene.add(treasureMesh);
 }
 
@@ -898,23 +898,56 @@ function drawMinimap(playerX, playerZ) {
     minimapCtx.arc(playerMapX, playerMapZ, 6, 0, Math.PI * 2);
     minimapCtx.fill();
 
-    // 플레이어 방향 표시 (작은 선)
+    // 플레이어 공격 범위 표시 (부채꼴)
     const lookDirectionX = Math.sin(playerRotation);
     const lookDirectionZ = Math.cos(playerRotation);
+    const attackRange = 3 * mapScale; // 공격 거리 3 유닛
+    const attackAngle = Math.PI / 6; // 30도 (좌우 15도씩)
 
+    // 공격 범위 부채꼴 그리기 (반투명 빨간색)
+    minimapCtx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(playerMapX, playerMapZ);
+
+    // 부채꼴의 시작 각도 계산 (playerRotation을 기준으로)
+    const startAngle = playerRotation - Math.PI / 2 - attackAngle / 2;
+    const endAngle = playerRotation - Math.PI / 2 + attackAngle / 2;
+
+    minimapCtx.arc(playerMapX, playerMapZ, attackRange, startAngle, endAngle);
+    minimapCtx.closePath();
+    minimapCtx.fill();
+
+    // 공격 범위 테두리 (빨간색 선)
+    minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+    minimapCtx.lineWidth = 2;
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(playerMapX, playerMapZ);
+    minimapCtx.arc(playerMapX, playerMapZ, attackRange, startAngle, endAngle);
+    minimapCtx.closePath();
+    minimapCtx.stroke();
+
+    // 플레이어 방향 표시 (중앙 선)
     minimapCtx.strokeStyle = '#ff0000';
     minimapCtx.lineWidth = 2;
     minimapCtx.beginPath();
     minimapCtx.moveTo(playerMapX, playerMapZ);
     minimapCtx.lineTo(
-        playerMapX + lookDirectionX * 15,
-        playerMapZ + lookDirectionZ * 15
+        playerMapX + lookDirectionX * attackRange,
+        playerMapZ + lookDirectionZ * attackRange
     );
     minimapCtx.stroke();
 }
 
 // 키보드 입력 상태 추적
 const keys = {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false
+};
+
+// 이전 키 상태 추적 (방향 전환 감지용)
+const prevKeys = {
     forward: false,
     backward: false,
     left: false,
@@ -1107,25 +1140,35 @@ function animate() {
 
     // 플레이어 이동 및 회전 (게임 시작 시에만)
     if (gameStarted && !gameCleared) {
-        // 화살표 키에 따라 이동 방향과 회전 설정
+        // 방향키를 처음 눌렀을 때만 회전 (이동 중 공격 가능하도록)
+        if (keys.forward && !prevKeys.forward) {
+            playerRotation = Math.PI; // 위쪽(북쪽)을 바라봄
+        }
+        if (keys.backward && !prevKeys.backward) {
+            playerRotation = 0; // 아래쪽(남쪽)을 바라봄
+        }
+        if (keys.left && !prevKeys.left) {
+            playerRotation = Math.PI / 2; // 왼쪽(서쪽)을 바라봄
+        }
+        if (keys.right && !prevKeys.right) {
+            playerRotation = -Math.PI / 2; // 오른쪽(동쪽)을 바라봄
+        }
+
+        // 이동 처리
         let moveX = 0;
         let moveZ = 0;
 
         if (keys.forward) {
             moveZ = -moveSpeed * delta;
-            playerRotation = Math.PI; // 위쪽(북쪽)을 바라봄
         }
         if (keys.backward) {
             moveZ = moveSpeed * delta;
-            playerRotation = 0; // 아래쪽(남쪽)을 바라봄
         }
         if (keys.left) {
             moveX = -moveSpeed * delta;
-            playerRotation = Math.PI / 2; // 왼쪽(서쪽)을 바라봄
         }
         if (keys.right) {
             moveX = moveSpeed * delta;
-            playerRotation = -Math.PI / 2; // 오른쪽(동쪽)을 바라봄
         }
 
         // 새 위치 계산
@@ -1161,6 +1204,12 @@ function animate() {
 
         // 카메라 위치 업데이트
         updateCameraPosition();
+
+        // 이전 키 상태 업데이트 (다음 프레임을 위해)
+        prevKeys.forward = keys.forward;
+        prevKeys.backward = keys.backward;
+        prevKeys.left = keys.left;
+        prevKeys.right = keys.right;
     }
 
     prevTime = time;
