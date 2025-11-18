@@ -49,6 +49,53 @@
             font-size: 14px;
             z-index: 10;
         }
+
+        #health-bar {
+            position: absolute;
+            top: 80px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 10;
+            min-width: 200px;
+        }
+
+        .health-label {
+            font-size: 12px;
+            margin-bottom: 3px;
+            font-weight: bold;
+        }
+
+        .health-container {
+            display: flex;
+            gap: 3px;
+            margin-bottom: 8px;
+        }
+
+        .health-box {
+            width: 30px;
+            height: 20px;
+            border: 2px solid #fff;
+            border-radius: 3px;
+        }
+
+        .health-box.player {
+            background-color: #00ff00;
+        }
+
+        .health-box.player.empty {
+            background-color: #333;
+        }
+
+        .health-box.enemy {
+            background-color: #ff0000;
+        }
+
+        .health-box.enemy.empty {
+            background-color: #333;
+        }
     </style>
 </head>
 <body>
@@ -60,7 +107,19 @@
             클릭하여 시작<br>
             WASD 또는 방향키: 이동<br>
             마우스: 둘러보기<br>
+            스페이스: 공격<br>
             ESC: 마우스 해제
+        </div>
+        <div id="health-bar">
+            <div class="health-label">플레이어 체력</div>
+            <div class="health-container" id="player-health">
+                <div class="health-box player"></div>
+                <div class="health-box player"></div>
+                <div class="health-box player"></div>
+                <div class="health-box player"></div>
+                <div class="health-box player"></div>
+            </div>
+            <div class="health-label">적 남은 수: <span id="enemy-count">2</span></div>
         </div>
     </div>
     <script type="module" src="/main.js"></script>

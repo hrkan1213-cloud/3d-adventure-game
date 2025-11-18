@@ -108,6 +108,8 @@ const enemyMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
 const enemy1 = new THREE.Mesh(enemyGeometry, enemyMaterial);
 enemy1.position.set(-3, 0.4, -3);
 enemy1.castShadow = true;
+enemy1.health = 3;
+enemy1.lastAttackTime = 0;
 scene.add(enemy1);
 enemies.push(enemy1);
 
@@ -115,11 +117,19 @@ enemies.push(enemy1);
 const enemy2 = new THREE.Mesh(enemyGeometry, enemyMaterial);
 enemy2.position.set(3, 0.4, 2);
 enemy2.castShadow = true;
+enemy2.health = 3;
+enemy2.lastAttackTime = 0;
 scene.add(enemy2);
 enemies.push(enemy2);
 
 // 적 이동 속도
 const enemySpeed = 1.5;
+
+// 체력 시스템
+let playerHealth = 5;
+const maxPlayerHealth = 5;
+const enemyAttackDistance = 1.5; // 적이 공격할 수 있는 거리
+const enemyAttackCooldown = 1000; // 1초마다 공격
 
 // PointerLockControls 설정 (1인칭 시점)
 const controls = new PointerLockControls(camera, renderer.domElement);
@@ -150,6 +160,67 @@ minimapCanvas.height = minimapSize;
 
 // 미니맵 스케일 (3D 공간 -> 2D 미니맵)
 const mapScale = minimapSize / (roomSize * 1.2);
+
+// 체력바 업데이트 함수
+function updateHealthUI() {
+    const healthBoxes = document.querySelectorAll('#player-health .health-box');
+    healthBoxes.forEach((box, index) => {
+        if (index < playerHealth) {
+            box.classList.remove('empty');
+        } else {
+            box.classList.add('empty');
+        }
+    });
+
+    const enemyCount = enemies.length;
+    document.getElementById('enemy-count').textContent = enemyCount;
+}
+
+// 플레이어 공격 함수
+function attackEnemy() {
+    const playerPos = controls.getObject().position;
+    const playerDirection = new THREE.Vector3(0, 0, -1);
+    playerDirection.applyQuaternion(controls.getObject().quaternion);
+
+    // 레이캐스터로 앞쪽의 적 감지
+    const raycaster = new THREE.Raycaster(playerPos, playerDirection);
+    const intersects = raycaster.intersectObjects(enemies);
+
+    if (intersects.length > 0) {
+        const hitEnemy = intersects[0].object;
+        const distance = intersects[0].distance;
+
+        // 공격 거리 체크 (3 유닛 이내)
+        if (distance <= 3) {
+            hitEnemy.health -= 1;
+
+            // 적이 죽었으면 제거
+            if (hitEnemy.health <= 0) {
+                scene.remove(hitEnemy);
+                const index = enemies.indexOf(hitEnemy);
+                if (index > -1) {
+                    enemies.splice(index, 1);
+                }
+                updateHealthUI();
+
+                // 모든 적을 처치하면 승리
+                if (enemies.length === 0) {
+                    setTimeout(() => {
+                        alert('승리! 모든 적을 처치했습니다!');
+                    }, 100);
+                }
+            }
+
+            // 시각적 피드백 (잠시 색 변경)
+            hitEnemy.material.color.setHex(0xffaa00);
+            setTimeout(() => {
+                if (hitEnemy.health > 0) {
+                    hitEnemy.material.color.setHex(0xff0000);
+                }
+            }, 100);
+        }
+    }
+}
 
 // 미니맵 그리기 함수
 function drawMinimap(playerX, playerZ) {
@@ -263,6 +334,12 @@ document.addEventListener('keydown', (event) => {
         case 'ArrowRight':
             keys.right = true;
             break;
+        case 'Space':
+            event.preventDefault();
+            if (controls.isLocked) {
+                attackEnemy();
+            }
+            break;
     }
 });
 
@@ -311,37 +388,55 @@ function animate() {
     cube.rotation.x += 0.01;
     cube.rotation.y += 0.01;
 
-    // 적 AI - 플레이어를 향해 이동
+    // 적 AI - 플레이어를 향해 이동 및 공격
     const playerPos = controls.getObject().position;
     enemies.forEach((enemy) => {
         // 플레이어 방향 계산
         const direction = new THREE.Vector3();
         direction.subVectors(playerPos, enemy.position);
         direction.y = 0; // Y축 이동 방지 (같은 높이 유지)
+
+        // 플레이어와의 거리 계산
+        const distanceToPlayer = direction.length();
         direction.normalize();
 
-        // 적 이동
-        const moveDistance = enemySpeed * delta;
-        const newX = enemy.position.x + direction.x * moveDistance;
-        const newZ = enemy.position.z + direction.z * moveDistance;
+        // 플레이어 공격 (일정 거리 이내일 때)
+        if (distanceToPlayer <= enemyAttackDistance) {
+            if (time - enemy.lastAttackTime >= enemyAttackCooldown) {
+                playerHealth -= 1;
+                enemy.lastAttackTime = time;
+                updateHealthUI();
 
-        // 벽 충돌 체크 (적도 벽을 통과하지 못하게)
-        const enemyRadius = 0.4;
-        const enemyBounds = {
-            minX: -roomSize / 2 + wallThickness / 2 + enemyRadius,
-            maxX: roomSize / 2 - wallThickness / 2 - enemyRadius,
-            minZ: -roomSize / 2 + wallThickness / 2 + enemyRadius,
-            maxZ: roomSize / 2 - wallThickness / 2 - enemyRadius
-        };
+                // 플레이어 체력이 0이 되면 게임 오버
+                if (playerHealth <= 0) {
+                    alert('게임 오버! 새로고침하여 다시 시작하세요.');
+                    controls.unlock();
+                }
+            }
+        } else {
+            // 공격 범위 밖이면 플레이어를 향해 이동
+            const moveDistance = enemySpeed * delta;
+            const newX = enemy.position.x + direction.x * moveDistance;
+            const newZ = enemy.position.z + direction.z * moveDistance;
 
-        // X축 이동 및 경계 체크
-        if (newX >= enemyBounds.minX && newX <= enemyBounds.maxX) {
-            enemy.position.x = newX;
-        }
+            // 벽 충돌 체크 (적도 벽을 통과하지 못하게)
+            const enemyRadius = 0.4;
+            const enemyBounds = {
+                minX: -roomSize / 2 + wallThickness / 2 + enemyRadius,
+                maxX: roomSize / 2 - wallThickness / 2 - enemyRadius,
+                minZ: -roomSize / 2 + wallThickness / 2 + enemyRadius,
+                maxZ: roomSize / 2 - wallThickness / 2 - enemyRadius
+            };
 
-        // Z축 이동 및 경계 체크
-        if (newZ >= enemyBounds.minZ && newZ <= enemyBounds.maxZ) {
-            enemy.position.z = newZ;
+            // X축 이동 및 경계 체크
+            if (newX >= enemyBounds.minX && newX <= enemyBounds.maxX) {
+                enemy.position.x = newX;
+            }
+
+            // Z축 이동 및 경계 체크
+            if (newZ >= enemyBounds.minZ && newZ <= enemyBounds.maxZ) {
+                enemy.position.z = newZ;
+            }
         }
 
         // 적이 플레이어를 향하도록 회전
@@ -396,5 +491,8 @@ function animate() {
     const controlsObject = controls.getObject();
     drawMinimap(controlsObject.position.x, controlsObject.position.z);
 }
+
+// 게임 시작 시 UI 초기화
+updateHealthUI();
 
 animate();
