@@ -186,9 +186,78 @@ scene.add(cube);
 
 // 적 관련 변수
 let enemies = [];
-const enemyGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-const enemyMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
 const enemySpeed = 0.8; // 적 이동 속도 감소
+
+// 마인크래프트 스타일 적 캐릭터 생성 함수
+function createEnemyCharacter() {
+    const enemy = new THREE.Group();
+
+    // 재질 정의
+    const redMaterial = new THREE.MeshStandardMaterial({ color: 0xff3333 });
+    const darkRedMaterial = new THREE.MeshStandardMaterial({ color: 0xaa0000 });
+
+    // 머리 (0.4 x 0.4 x 0.4)
+    const head = new THREE.Mesh(
+        new THREE.BoxGeometry(0.4, 0.4, 0.4),
+        redMaterial
+    );
+    head.position.y = 0.6;
+    head.castShadow = true;
+    enemy.add(head);
+
+    // 몸통 (0.4 x 0.6 x 0.3)
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(0.4, 0.6, 0.3),
+        darkRedMaterial
+    );
+    body.position.y = 0.1;
+    body.castShadow = true;
+    enemy.add(body);
+
+    // 왼쪽 팔 (0.2 x 0.5 x 0.2)
+    const leftArm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.5, 0.2),
+        redMaterial
+    );
+    leftArm.position.set(-0.3, 0.15, 0);
+    leftArm.castShadow = true;
+    enemy.add(leftArm);
+
+    // 오른쪽 팔 (0.2 x 0.5 x 0.2)
+    const rightArm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.5, 0.2),
+        redMaterial
+    );
+    rightArm.position.set(0.3, 0.15, 0);
+    rightArm.castShadow = true;
+    enemy.add(rightArm);
+
+    // 왼쪽 다리 (0.2 x 0.5 x 0.2)
+    const leftLeg = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.5, 0.2),
+        darkRedMaterial
+    );
+    leftLeg.position.set(-0.1, -0.45, 0);
+    leftLeg.castShadow = true;
+    enemy.add(leftLeg);
+
+    // 오른쪽 다리 (0.2 x 0.5 x 0.2)
+    const rightLeg = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.5, 0.2),
+        darkRedMaterial
+    );
+    rightLeg.position.set(0.1, -0.45, 0);
+    rightLeg.castShadow = true;
+    enemy.add(rightLeg);
+
+    // 애니메이션용 부위 저장
+    enemy.userData.leftArm = leftArm;
+    enemy.userData.rightArm = rightArm;
+    enemy.userData.leftLeg = leftLeg;
+    enemy.userData.rightLeg = rightLeg;
+
+    return enemy;
+}
 
 // 난이도 설정
 let currentDifficulty = null;
@@ -213,11 +282,11 @@ function createEnemies(difficulty) {
     ];
 
     for (let i = 0; i < settings.enemyCount; i++) {
-        const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial.clone());
+        const enemy = createEnemyCharacter();
         enemy.position.set(positions[i].x, 0.4, positions[i].z);
-        enemy.castShadow = true;
         enemy.health = settings.enemyHealth;
         enemy.lastAttackTime = 0;
+        enemy.userData.walkCycle = 0; // 걷기 애니메이션용
         scene.add(enemy);
         enemies.push(enemy);
     }
@@ -227,29 +296,109 @@ function createEnemies(difficulty) {
 
 // 아이템 관련 변수
 let items = [];
-const itemGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-const itemMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffd700,
-    emissive: 0xffff00,
-    emissiveIntensity: 0.3
-});
 const itemPickupDistance = 2.0;
 
 // 인벤토리 시스템
 let inventory = [];
 
+// 마인크래프트 스타일 황금 코인 생성 함수
+function createGoldenCoin() {
+    const coin = new THREE.Group();
+
+    // 코인 본체 (얇은 원통)
+    const coinBody = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.25, 0.25, 0.05, 16),
+        new THREE.MeshStandardMaterial({
+            color: 0xffd700,
+            emissive: 0xffaa00,
+            emissiveIntensity: 0.3,
+            metalness: 0.8,
+            roughness: 0.2
+        })
+    );
+    coinBody.castShadow = true;
+    coin.add(coinBody);
+
+    // 코인 테두리 강조
+    const coinRim = new THREE.Mesh(
+        new THREE.TorusGeometry(0.25, 0.03, 8, 16),
+        new THREE.MeshStandardMaterial({
+            color: 0xffaa00,
+            metalness: 0.9,
+            roughness: 0.1
+        })
+    );
+    coinRim.rotation.x = Math.PI / 2;
+    coinRim.castShadow = true;
+    coin.add(coinRim);
+
+    return coin;
+}
+
 // 무기 관련 변수
 let weaponMesh = null;
-const weaponGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.8, 16);
-const weaponMaterial = new THREE.MeshStandardMaterial({
-    color: 0x0066ff,
-    emissive: 0x0033ff,
-    emissiveIntensity: 0.2
-});
 let equippedWeapon = null;
 let attackPower = 1;
 let playerWeaponMesh = null; // 플레이어가 들고 있는 검
 let isAttacking = false; // 공격 애니메이션 중인지 여부
+
+// 마인크래프트 스타일 검 생성 함수
+function createSword() {
+    const sword = new THREE.Group();
+
+    // 검날 (은색, 긴 박스)
+    const blade = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.6, 0.02),
+        new THREE.MeshStandardMaterial({
+            color: 0xcccccc,
+            metalness: 0.8,
+            roughness: 0.2
+        })
+    );
+    blade.position.y = 0.3;
+    blade.castShadow = true;
+    sword.add(blade);
+
+    // 가드 (금색 십자가)
+    const guard = new THREE.Mesh(
+        new THREE.BoxGeometry(0.25, 0.05, 0.05),
+        new THREE.MeshStandardMaterial({
+            color: 0xffd700,
+            metalness: 0.6,
+            roughness: 0.4
+        })
+    );
+    guard.position.y = 0;
+    guard.castShadow = true;
+    sword.add(guard);
+
+    // 손잡이 (갈색)
+    const handle = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.25, 0.06),
+        new THREE.MeshStandardMaterial({
+            color: 0x8b4513,
+            roughness: 0.8
+        })
+    );
+    handle.position.y = -0.125;
+    handle.castShadow = true;
+    sword.add(handle);
+
+    // 손잡이 끝 (금색)
+    const pommel = new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, 0.08, 0.1),
+        new THREE.MeshStandardMaterial({
+            color: 0xffd700,
+            metalness: 0.6,
+            roughness: 0.4
+        })
+    );
+    pommel.position.y = -0.29;
+    pommel.castShadow = true;
+    sword.add(pommel);
+
+    return sword;
+}
 
 // 열쇠 관련 변수
 let keyMesh = null;
@@ -263,13 +412,70 @@ const keyMaterial = new THREE.MeshStandardMaterial({
 
 // 보물상자 관련 변수
 let treasureMesh = null;
-const treasureGeometry = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-const treasureMaterial = new THREE.MeshStandardMaterial({
-    color: 0x9932cc,
-    emissive: 0x6a0dad,
-    emissiveIntensity: 0.3,
-    metalness: 0.5
-});
+
+// 마인크래프트 스타일 보물상자 생성 함수
+function createTreasureChest() {
+    const chest = new THREE.Group();
+
+    // 상자 하단 (갈색 나무)
+    const chestBottom = new THREE.Mesh(
+        new THREE.BoxGeometry(1.0, 0.6, 0.7),
+        new THREE.MeshStandardMaterial({
+            color: 0x8b4513,
+            roughness: 0.8
+        })
+    );
+    chestBottom.position.y = -0.2;
+    chestBottom.castShadow = true;
+    chest.add(chestBottom);
+
+    // 상자 상단 뚜껑 (갈색 나무)
+    const chestTop = new THREE.Mesh(
+        new THREE.BoxGeometry(1.0, 0.4, 0.7),
+        new THREE.MeshStandardMaterial({
+            color: 0xa0522d,
+            roughness: 0.8
+        })
+    );
+    chestTop.position.y = 0.3;
+    chestTop.castShadow = true;
+    chest.add(chestTop);
+
+    // 금속 띠 (앞면)
+    const metalBand1 = new THREE.Mesh(
+        new THREE.BoxGeometry(1.05, 0.1, 0.05),
+        new THREE.MeshStandardMaterial({
+            color: 0xffd700,
+            metalness: 0.9,
+            roughness: 0.2
+        })
+    );
+    metalBand1.position.set(0, 0, 0.37);
+    metalBand1.castShadow = true;
+    chest.add(metalBand1);
+
+    // 금속 띠 (뒷면)
+    const metalBand2 = metalBand1.clone();
+    metalBand2.position.z = -0.37;
+    chest.add(metalBand2);
+
+    // 자물쇠 (금색)
+    const lock = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.25, 0.15),
+        new THREE.MeshStandardMaterial({
+            color: 0xffd700,
+            emissive: 0xffaa00,
+            emissiveIntensity: 0.3,
+            metalness: 0.9,
+            roughness: 0.2
+        })
+    );
+    lock.position.set(0, 0.1, 0.42);
+    lock.castShadow = true;
+    chest.add(lock);
+
+    return chest;
+}
 
 // 게임 상태
 let hasKey = false;
@@ -282,26 +488,23 @@ function createGameObjects() {
     items.forEach(item => scene.remove(item));
     items = [];
 
-    const item1 = new THREE.Mesh(itemGeometry, itemMaterial.clone());
+    const item1 = createGoldenCoin();
     item1.position.set(-2, 0.3, 2);
-    item1.castShadow = true;
-    item1.itemName = '황금 구슬';
+    item1.itemName = '황금 코인';
     scene.add(item1);
     items.push(item1);
 
-    const item2 = new THREE.Mesh(itemGeometry, itemMaterial.clone());
+    const item2 = createGoldenCoin();
     item2.position.set(2, 0.3, -2);
-    item2.castShadow = true;
-    item2.itemName = '마법의 구슬';
+    item2.itemName = '황금 코인';
     scene.add(item2);
     items.push(item2);
 
     // 무기 생성
     if (weaponMesh) scene.remove(weaponMesh);
-    weaponMesh = new THREE.Mesh(weaponGeometry, weaponMaterial.clone());
+    weaponMesh = createSword();
     weaponMesh.position.set(0, 0.4, 3);
-    weaponMesh.rotation.z = Math.PI / 2;
-    weaponMesh.castShadow = true;
+    weaponMesh.rotation.z = Math.PI / 2; // 누워있는 상태
     weaponMesh.weaponName = '검';
     scene.add(weaponMesh);
 
@@ -316,9 +519,8 @@ function createGameObjects() {
 
     // 보물상자 생성
     if (treasureMesh) scene.remove(treasureMesh);
-    treasureMesh = new THREE.Mesh(treasureGeometry, treasureMaterial.clone());
+    treasureMesh = createTreasureChest();
     treasureMesh.position.set(4, 0.6, 0);
-    treasureMesh.castShadow = true;
     scene.add(treasureMesh);
 }
 
@@ -434,9 +636,10 @@ function pickupItem() {
             scene.remove(weaponMesh);
 
             // 플레이어 손에 검 추가
-            playerWeaponMesh = new THREE.Mesh(weaponGeometry, weaponMaterial.clone());
+            playerWeaponMesh = createSword();
             playerWeaponMesh.position.set(0.3, -0.3, -0.5); // 카메라 기준 오른쪽 아래 앞
-            playerWeaponMesh.rotation.z = Math.PI / 4; // 45도 기울임
+            playerWeaponMesh.rotation.set(0, 0, Math.PI / 4); // 45도 기울임
+            playerWeaponMesh.scale.set(0.8, 0.8, 0.8); // 약간 작게
             camera.add(playerWeaponMesh);
 
             updateWeaponUI();
@@ -778,9 +981,8 @@ function animate() {
     // 보물상자 빛나는 효과
     if (treasureMesh && !gameCleared) {
         treasureMesh.rotation.y += 0.005;
-        // 보물상자 발광 효과
-        const glowIntensity = 0.3 + Math.sin(time * 0.002) * 0.2;
-        treasureMesh.material.emissiveIntensity = glowIntensity;
+        // 보물상자 위아래 떠다니는 효과
+        treasureMesh.position.y = 0.6 + Math.sin(time * 0.002) * 0.05;
     }
 
     // 적 AI - 플레이어를 향해 이동 및 공격 (게임이 시작되고 클리어되지 않았을 때만)
@@ -831,10 +1033,22 @@ function animate() {
                 if (newZ >= enemyBounds.minZ && newZ <= enemyBounds.maxZ) {
                     enemy.position.z = newZ;
                 }
+
+                // 걷기 애니메이션 (팔다리 흔들기)
+                enemy.userData.walkCycle += delta * 5; // 걷기 주기
+                const swing = Math.sin(enemy.userData.walkCycle) * 0.3;
+
+                if (enemy.userData.leftArm) {
+                    enemy.userData.leftArm.rotation.x = swing;
+                    enemy.userData.rightArm.rotation.x = -swing;
+                    enemy.userData.leftLeg.rotation.x = -swing;
+                    enemy.userData.rightLeg.rotation.x = swing;
+                }
             }
 
             // 적이 플레이어를 향하도록 회전
-            enemy.rotation.y += 0.02;
+            const targetRotation = Math.atan2(direction.x, direction.z);
+            enemy.rotation.y = targetRotation;
         });
     }
 
