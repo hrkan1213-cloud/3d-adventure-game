@@ -64,45 +64,36 @@ function createBlockMaterials(isTopBlock, colorIndex) {
     }
 }
 
-// 언덕 정의 (위치와 높이) - 계단식으로 쌓기
+// 언덕 정의 (위치와 높이) - 마인크래프트식으로 쌓아올리기
 const hills = [
-    { x: -12, z: -12, height: 7, colorIndex: 0, direction: 'se' },  // 왼쪽 위 - 초록 - 남동쪽 계단
-    { x: 12, z: -12, height: 5, colorIndex: 1, direction: 'sw' },   // 오른쪽 위 - 회색 - 남서쪽 계단
-    { x: -12, z: 12, height: 6, colorIndex: 2, direction: 'ne' },   // 왼쪽 아래 - 노랑 - 북동쪽 계단
-    { x: 12, z: 12, height: 7, colorIndex: 3, direction: 'nw' },    // 오른쪽 아래 - 갈색 - 북서쪽 계단
-    { x: 0, z: -12, height: 5, colorIndex: 0, direction: 's' },     // 위 중앙 - 초록 - 남쪽 계단
+    { x: -12, z: -12, height: 7, colorIndex: 0 },  // 왼쪽 위 - 초록
+    { x: 12, z: -12, height: 5, colorIndex: 1 },   // 오른쪽 위 - 회색
+    { x: -12, z: 12, height: 6, colorIndex: 2 },   // 왼쪽 아래 - 노랑
+    { x: 12, z: 12, height: 7, colorIndex: 3 },    // 오른쪽 아래 - 갈색
+    { x: 0, z: -12, height: 5, colorIndex: 0 },    // 위 중앙 - 초록
 ];
 
-// 계단식 언덕 블록 생성
+// 마인크래프트식 언덕 블록 생성 (수직으로 쌓아올림)
 hills.forEach(hill => {
     for (let h = 0; h < hill.height; h++) {
         const blockY = h * blockHeight;
         const isTopBlock = (h === hill.height - 1);
 
-        // 계단 오프셋 계산 (중앙에서 안쪽으로)
-        let offsetX = 0;
-        let offsetZ = 0;
-
-        if (hill.direction.includes('n')) offsetZ = h * blockSize * 0.3;  // 북쪽으로
-        if (hill.direction.includes('s')) offsetZ = -h * blockSize * 0.3; // 남쪽으로
-        if (hill.direction.includes('e')) offsetX = h * blockSize * 0.3;  // 동쪽으로
-        if (hill.direction.includes('w')) offsetX = -h * blockSize * 0.3; // 서쪽으로
-
         const blockGeometry = new THREE.BoxGeometry(blockSize, blockHeight, blockSize);
         const blockMaterials = createBlockMaterials(isTopBlock, hill.colorIndex);
         const block = new THREE.Mesh(blockGeometry, blockMaterials);
 
-        block.position.set(hill.x + offsetX, blockY + blockHeight / 2, hill.z + offsetZ);
+        block.position.set(hill.x, blockY + blockHeight / 2, hill.z);
         block.receiveShadow = true;
         block.castShadow = true;
 
-        // 모든 블록에 충돌 감지 데이터 저장 (계단을 밟을 수 있게)
+        // 모든 블록에 충돌 감지 데이터 저장
         block.userData.isHill = true;
         block.userData.height = blockY + blockHeight;
-        block.userData.minX = block.position.x - blockSize / 2;
-        block.userData.maxX = block.position.x + blockSize / 2;
-        block.userData.minZ = block.position.z - blockSize / 2;
-        block.userData.maxZ = block.position.z + blockSize / 2;
+        block.userData.minX = hill.x - blockSize / 2;
+        block.userData.maxX = hill.x + blockSize / 2;
+        block.userData.minZ = hill.z - blockSize / 2;
+        block.userData.maxZ = hill.z + blockSize / 2;
         terrainTiles.push(block);
 
         scene.add(block);
@@ -382,11 +373,66 @@ function createCrystal() {
     return crystal;
 }
 
+// 마인크래프트 스타일 요술지팡이 생성 함수
+function createMagicWand() {
+    const wand = new THREE.Group();
+
+    // 지팡이 손잡이 (갈색 나무)
+    const handle = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.04, 0.6, 8),
+        new THREE.MeshStandardMaterial({
+            color: 0x8b4513,
+            roughness: 0.9
+        })
+    );
+    handle.castShadow = true;
+    wand.add(handle);
+
+    // 상단 보석 (보라색)
+    const gem = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.12, 0),
+        new THREE.MeshStandardMaterial({
+            color: 0x9400d3,
+            emissive: 0x6a0dad,
+            emissiveIntensity: 0.6,
+            metalness: 0.3,
+            roughness: 0.2
+        })
+    );
+    gem.position.y = 0.35;
+    gem.castShadow = true;
+    wand.add(gem);
+
+    // 보석 주변 작은 별들
+    for (let i = 0; i < 4; i++) {
+        const angle = (i / 4) * Math.PI * 2;
+        const star = new THREE.Mesh(
+            new THREE.BoxGeometry(0.03, 0.03, 0.03),
+            new THREE.MeshBasicMaterial({
+                color: 0xffff00
+            })
+        );
+        star.position.set(
+            Math.cos(angle) * 0.15,
+            0.35 + Math.sin(angle) * 0.15,
+            Math.sin(angle) * 0.15
+        );
+        star.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+        wand.add(star);
+    }
+
+    return wand;
+}
+
 // 특수 효과 관련 변수
 let goldenParticles = null;
 let sunMesh = null;
+let moonMesh = null;
+let stars = null;
+let clouds = [];
 let hasUsedCoin = false;
 let hasUsedCrystal = false;
+let hasUsedWand = false;
 
 // 황금 파티클 생성 함수
 function createGoldenParticles() {
@@ -443,6 +489,86 @@ function createSun() {
     sun.position.set(15, 20, -15);
 
     return sun;
+}
+
+// 달 생성 함수
+function createMoon() {
+    const moon = new THREE.Mesh(
+        new THREE.SphereGeometry(2.5, 32, 32),
+        new THREE.MeshBasicMaterial({
+            color: 0xf0f0f0,
+            emissive: 0xcccccc,
+            emissiveIntensity: 0.5
+        })
+    );
+    moon.position.set(-15, 25, -15);
+    return moon;
+}
+
+// 별들 생성 함수
+function createStars() {
+    const starCount = 500;
+    const positions = new Float32Array(starCount * 3);
+
+    for (let i = 0; i < starCount; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 100;
+        positions[i * 3 + 1] = Math.random() * 30 + 15;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const material = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 0.2,
+        transparent: true,
+        opacity: 0.9
+    });
+
+    return new THREE.Points(geometry, material);
+}
+
+// 구름 생성 함수
+function createCloud() {
+    const cloud = new THREE.Group();
+
+    // 여러 개의 구를 조합하여 구름 만들기
+    for (let i = 0; i < 5; i++) {
+        const puff = new THREE.Mesh(
+            new THREE.SphereGeometry(0.8 + Math.random() * 0.4, 8, 8),
+            new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.8
+            })
+        );
+        puff.position.set(
+            (Math.random() - 0.5) * 2,
+            (Math.random() - 0.5) * 0.5,
+            (Math.random() - 0.5) * 0.5
+        );
+        cloud.add(puff);
+    }
+
+    return cloud;
+}
+
+// 여러 구름 생성 함수
+function createClouds() {
+    const cloudArray = [];
+    for (let i = 0; i < 8; i++) {
+        const cloud = createCloud();
+        cloud.position.set(
+            (Math.random() - 0.5) * 40,
+            15 + Math.random() * 5,
+            (Math.random() - 0.5) * 40
+        );
+        cloud.userData.speed = 0.5 + Math.random() * 0.5;
+        cloudArray.push(cloud);
+        scene.add(cloud);
+    }
+    return cloudArray;
 }
 
 // 무기 관련 변수
@@ -651,6 +777,12 @@ function createGameObjects() {
     item2.itemName = '마법 수정';
     scene.add(item2);
     items.push(item2);
+
+    const item3 = createMagicWand();
+    item3.position.set(0, 0.3, -10);
+    item3.itemName = '요술지팡이';
+    scene.add(item3);
+    items.push(item3);
 
     // 무기 생성
     if (weaponMesh) scene.remove(weaponMesh);
@@ -1217,6 +1349,22 @@ document.addEventListener('keydown', (event) => {
                 console.log('하늘에 태양이 생성되었습니다!');
             }
             break;
+        case 'Digit3':
+            event.preventDefault();
+            // 요술지팡이를 가지고 있고 아직 사용하지 않았다면
+            if (inventory.includes('요술지팡이') && !hasUsedWand && !moonMesh) {
+                // 하늘을 밤하늘로 변경
+                scene.background = new THREE.Color(0x000033);
+                // 달 생성
+                moonMesh = createMoon();
+                scene.add(moonMesh);
+                // 별들 생성
+                stars = createStars();
+                scene.add(stars);
+                hasUsedWand = true;
+                console.log('밤하늘이 되었습니다! 달과 별이 나타났습니다!');
+            }
+            break;
     }
 });
 
@@ -1295,6 +1443,15 @@ function animate() {
             sunMesh.children[1].scale.set(glowScale, glowScale, glowScale);
         }
     }
+
+    // 구름 이동 효과
+    clouds.forEach(cloud => {
+        cloud.position.x += cloud.userData.speed * delta;
+        // 맵 밖으로 나가면 반대편에서 다시 시작
+        if (cloud.position.x > 25) {
+            cloud.position.x = -25;
+        }
+    });
 
     // 적 AI - 플레이어를 향해 이동 및 공격 (게임이 시작되고 클리어되지 않았을 때만)
     if (gameStarted && !gameCleared) {
@@ -1396,25 +1553,10 @@ function animate() {
             moveX = moveSpeed * delta; // 오른쪽으로 이동
         }
 
-        // 이동 방향이 있을 때만 회전 (자연스러운 카메라 회전)
+        // 이동 방향이 있을 때만 회전 (즉시 방향 전환)
         if (moveX !== 0 || moveZ !== 0) {
-            // 이동 방향에 따른 목표 회전 각도 계산
-            const targetRotation = Math.atan2(-moveX, -moveZ);
-
-            // 부드러운 회전 (보간)
-            const rotationSpeed = 10; // 회전 속도 (높을수록 빠름)
-            let rotationDiff = targetRotation - playerRotation;
-
-            // 각도 차이를 -PI ~ PI 범위로 정규화 (최단 경로로 회전)
-            while (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
-            while (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
-
-            // 부드럽게 회전
-            playerRotation += rotationDiff * rotationSpeed * delta;
-
-            // 각도를 -PI ~ PI 범위로 유지
-            while (playerRotation > Math.PI) playerRotation -= 2 * Math.PI;
-            while (playerRotation < -Math.PI) playerRotation += 2 * Math.PI;
+            // 이동 방향에 따른 목표 회전 각도 계산 후 즉시 적용
+            playerRotation = Math.atan2(-moveX, -moveZ);
         }
 
         // 새 위치 계산
@@ -1494,6 +1636,11 @@ window.startGame = function(difficulty) {
     // 특수 효과 초기화
     hasUsedCoin = false;
     hasUsedCrystal = false;
+    hasUsedWand = false;
+
+    // 하늘색 초기화
+    scene.background = new THREE.Color(0x87ceeb);
+
     if (goldenParticles) {
         scene.remove(goldenParticles);
         goldenParticles = null;
@@ -1502,6 +1649,20 @@ window.startGame = function(difficulty) {
         scene.remove(sunMesh);
         sunMesh = null;
     }
+    if (moonMesh) {
+        scene.remove(moonMesh);
+        moonMesh = null;
+    }
+    if (stars) {
+        scene.remove(stars);
+        stars = null;
+    }
+    // 기존 구름 제거
+    clouds.forEach(cloud => scene.remove(cloud));
+    clouds = [];
+
+    // 새로운 구름 생성
+    clouds = createClouds();
 
     // 플레이어가 들고 있던 검 제거
     if (playerWeaponMesh) {
