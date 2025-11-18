@@ -336,7 +336,6 @@ function pickupItem() {
             equippedWeapon = weaponMesh.weaponName;
             attackPower = 1.5; // 공격력 1.5배
             scene.remove(weaponMesh);
-            weapon = weaponMesh;
             updateWeaponUI();
             console.log(`${weaponMesh.weaponName} 습득! 공격력이 증가했습니다!`);
             return;
@@ -364,12 +363,10 @@ function pickupItem() {
 
 // 플레이어 공격 함수
 function attackEnemy() {
-    // 플레이어가 바라보는 방향 계산
-    const playerDirection = new THREE.Vector3(
-        Math.sin(playerRotation),
-        0,
-        Math.cos(playerRotation)
-    );
+    // 카메라가 바라보는 방향 가져오기
+    const playerDirection = new THREE.Vector3();
+    camera.getWorldDirection(playerDirection);
+    playerDirection.normalize();
 
     // 레이캐스터로 앞쪽의 적 감지
     const raycaster = new THREE.Raycaster(playerPosition, playerDirection);
