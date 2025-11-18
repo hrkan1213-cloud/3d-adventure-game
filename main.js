@@ -173,6 +173,38 @@ scene.add(weaponMesh);
 let equippedWeapon = null;
 let attackPower = 1; // 기본 공격력
 
+// 금색 열쇠 생성 (작은 원뿔)
+const keyGeometry = new THREE.ConeGeometry(0.2, 0.5, 8);
+const keyMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffd700,
+    emissive: 0xffaa00,
+    emissiveIntensity: 0.4,
+    metalness: 0.8
+});
+const keyMesh = new THREE.Mesh(keyGeometry, keyMaterial);
+keyMesh.position.set(-4, 0.25, 0);
+keyMesh.rotation.x = Math.PI; // 뒤집기
+keyMesh.castShadow = true;
+keyMesh.keyName = '금색 열쇠';
+scene.add(keyMesh);
+
+// 보라색 보물상자 생성 (큰 큐브)
+const treasureGeometry = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+const treasureMaterial = new THREE.MeshStandardMaterial({
+    color: 0x9932cc,
+    emissive: 0x6a0dad,
+    emissiveIntensity: 0.3,
+    metalness: 0.5
+});
+const treasureMesh = new THREE.Mesh(treasureGeometry, treasureMaterial);
+treasureMesh.position.set(4, 0.6, 0);
+treasureMesh.castShadow = true;
+scene.add(treasureMesh);
+
+// 게임 상태
+let hasKey = false;
+let gameCleared = false;
+
 // 체력 시스템
 let playerHealth = 5;
 const maxPlayerHealth = 5;
@@ -254,6 +286,30 @@ function updateWeaponUI() {
 // 아이템 습득 함수
 function pickupItem() {
     const playerPos = controls.getObject().position;
+
+    // 열쇠 습득 체크
+    if (keyMesh && !hasKey) {
+        const distance = playerPos.distanceTo(keyMesh.position);
+        if (distance <= itemPickupDistance) {
+            hasKey = true;
+            scene.remove(keyMesh);
+            inventory.push(keyMesh.keyName);
+            updateInventoryUI();
+            console.log(`${keyMesh.keyName} 습득! 보물상자를 열 수 있습니다!`);
+            return;
+        }
+    }
+
+    // 보물상자 상호작용 체크 (열쇠가 필요)
+    if (treasureMesh && hasKey && !gameCleared) {
+        const distance = playerPos.distanceTo(treasureMesh.position);
+        if (distance <= itemPickupDistance) {
+            gameCleared = true;
+            alert('게임 클리어!');
+            controls.unlock();
+            return;
+        }
+    }
 
     // 무기 습득 체크
     if (weaponMesh && !equippedWeapon) {
@@ -397,6 +453,27 @@ function drawMinimap(playerX, playerZ) {
         minimapCtx.fillRect(weaponMapX - 4, weaponMapZ - 4, 8, 8);
     }
 
+    // 열쇠 그리기 (황금색 삼각형)
+    if (keyMesh && !hasKey) {
+        const keyMapX = centerX + (keyMesh.position.x * mapScale);
+        const keyMapZ = centerY + (keyMesh.position.z * mapScale);
+        minimapCtx.fillStyle = '#ffd700';
+        minimapCtx.beginPath();
+        minimapCtx.moveTo(keyMapX, keyMapZ - 5); // 위쪽 꼭짓점
+        minimapCtx.lineTo(keyMapX - 4, keyMapZ + 3); // 왼쪽 아래
+        minimapCtx.lineTo(keyMapX + 4, keyMapZ + 3); // 오른쪽 아래
+        minimapCtx.closePath();
+        minimapCtx.fill();
+    }
+
+    // 보물상자 그리기 (보라색 사각형)
+    if (treasureMesh && !gameCleared) {
+        const treasureMapX = centerX + (treasureMesh.position.x * mapScale);
+        const treasureMapZ = centerY + (treasureMesh.position.z * mapScale);
+        minimapCtx.fillStyle = '#9932cc';
+        minimapCtx.fillRect(treasureMapX - 6, treasureMapZ - 6, 12, 12);
+    }
+
     // 플레이어 위치 그리기 (빨간 점)
     const playerMapX = centerX + (playerX * mapScale);
     const playerMapZ = centerY + (playerZ * mapScale);
@@ -534,6 +611,20 @@ function animate() {
     if (weaponMesh && !equippedWeapon) {
         weaponMesh.position.y = 0.4 + Math.sin(time * 0.003) * 0.1;
         weaponMesh.rotation.y += 0.01;
+    }
+
+    // 열쇠 떠다니는 효과
+    if (keyMesh && !hasKey) {
+        keyMesh.position.y = 0.25 + Math.sin(time * 0.0025) * 0.15;
+        keyMesh.rotation.y += 0.015;
+    }
+
+    // 보물상자 빛나는 효과
+    if (treasureMesh && !gameCleared) {
+        treasureMesh.rotation.y += 0.005;
+        // 보물상자 발광 효과
+        const glowIntensity = 0.3 + Math.sin(time * 0.002) * 0.2;
+        treasureMesh.material.emissiveIntensity = glowIntensity;
     }
 
     // 적 AI - 플레이어를 향해 이동 및 공격
