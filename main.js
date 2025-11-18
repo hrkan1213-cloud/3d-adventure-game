@@ -117,6 +117,79 @@ controls.addEventListener('unlock', () => {
 
 scene.add(controls.getObject());
 
+// 미니맵 설정
+const minimapCanvas = document.getElementById('minimap-canvas');
+const minimapCtx = minimapCanvas.getContext('2d');
+
+// 미니맵 크기 설정
+const minimapSize = 300;
+minimapCanvas.width = minimapSize;
+minimapCanvas.height = minimapSize;
+
+// 미니맵 스케일 (3D 공간 -> 2D 미니맵)
+const mapScale = minimapSize / (roomSize * 1.2);
+
+// 미니맵 그리기 함수
+function drawMinimap(playerX, playerZ) {
+    // 캔버스 초기화
+    minimapCtx.fillStyle = '#2a2a2a';
+    minimapCtx.fillRect(0, 0, minimapSize, minimapSize);
+
+    // 중심점 계산
+    const centerX = minimapSize / 2;
+    const centerY = minimapSize / 2;
+
+    // 바닥 그리기 (회색)
+    minimapCtx.fillStyle = '#555555';
+    const floorSize = roomSize * mapScale;
+    minimapCtx.fillRect(
+        centerX - floorSize / 2,
+        centerY - floorSize / 2,
+        floorSize,
+        floorSize
+    );
+
+    // 벽 그리기 (밝은 회색)
+    minimapCtx.strokeStyle = '#cccccc';
+    minimapCtx.lineWidth = 3;
+    minimapCtx.strokeRect(
+        centerX - floorSize / 2,
+        centerY - floorSize / 2,
+        floorSize,
+        floorSize
+    );
+
+    // 큐브 그리기 (토마토색)
+    const cubeX = centerX + (0 * mapScale);
+    const cubeZ = centerY + (-3 * mapScale);
+    minimapCtx.fillStyle = '#ff6347';
+    minimapCtx.fillRect(cubeX - 5, cubeZ - 5, 10, 10);
+
+    // 플레이어 위치 그리기 (빨간 점)
+    const playerMapX = centerX + (playerX * mapScale);
+    const playerMapZ = centerY + (playerZ * mapScale);
+
+    minimapCtx.fillStyle = '#ff0000';
+    minimapCtx.beginPath();
+    minimapCtx.arc(playerMapX, playerMapZ, 6, 0, Math.PI * 2);
+    minimapCtx.fill();
+
+    // 플레이어 방향 표시 (작은 선)
+    const controlsObject = controls.getObject();
+    const lookDirection = new THREE.Vector3(0, 0, -1);
+    lookDirection.applyQuaternion(controlsObject.quaternion);
+
+    minimapCtx.strokeStyle = '#ff0000';
+    minimapCtx.lineWidth = 2;
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(playerMapX, playerMapZ);
+    minimapCtx.lineTo(
+        playerMapX + lookDirection.x * 15,
+        playerMapZ + lookDirection.z * 15
+    );
+    minimapCtx.stroke();
+}
+
 // 키보드 입력 상태 추적
 const keys = {
     forward: false,
@@ -251,6 +324,10 @@ function animate() {
 
     prevTime = time;
     renderer.render(scene, camera);
+
+    // 미니맵 업데이트
+    const controlsObject = controls.getObject();
+    drawMinimap(controlsObject.position.x, controlsObject.position.z);
 }
 
 animate();
