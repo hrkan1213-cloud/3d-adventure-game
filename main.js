@@ -10,7 +10,7 @@ const gameWidth = window.innerWidth;
 const gameHeight = window.innerHeight * 0.7; // 하단 70%
 
 const camera = new THREE.PerspectiveCamera(
-    75,
+    90,  // 시야각을 90도로 넓게 변경
     gameWidth / gameHeight,
     0.1,
     1000
@@ -64,13 +64,13 @@ function createBlockMaterials(isTopBlock, colorIndex) {
     }
 }
 
-// 언덕 정의 (위치와 높이)
+// 언덕 정의 (위치와 높이) - 복층으로 높게 쌓기
 const hills = [
-    { x: -12, z: -12, height: 3, colorIndex: 0 },  // 왼쪽 위 - 초록
-    { x: 12, z: -12, height: 2, colorIndex: 1 },   // 오른쪽 위 - 회색
-    { x: -12, z: 12, height: 2, colorIndex: 2 },   // 왼쪽 아래 - 노랑
-    { x: 12, z: 12, height: 3, colorIndex: 3 },    // 오른쪽 아래 - 갈색
-    { x: 0, z: -12, height: 2, colorIndex: 0 },    // 위 중앙 - 초록
+    { x: -12, z: -12, height: 7, colorIndex: 0 },  // 왼쪽 위 - 초록
+    { x: 12, z: -12, height: 5, colorIndex: 1 },   // 오른쪽 위 - 회색
+    { x: -12, z: 12, height: 6, colorIndex: 2 },   // 왼쪽 아래 - 노랑
+    { x: 12, z: 12, height: 7, colorIndex: 3 },    // 오른쪽 아래 - 갈색
+    { x: 0, z: -12, height: 5, colorIndex: 0 },    // 위 중앙 - 초록
 ];
 
 // 언덕 블록 생성
@@ -387,13 +387,66 @@ function createSword() {
 
 // 열쇠 관련 변수
 let keyMesh = null;
-const keyGeometry = new THREE.ConeGeometry(0.2, 0.5, 8);
-const keyMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffd700,
-    emissive: 0xffaa00,
-    emissiveIntensity: 0.4,
-    metalness: 0.8
-});
+
+// 마인크래프트 스타일 황금 열쇠 생성 함수
+function createGoldenKey() {
+    const key = new THREE.Group();
+
+    const keyMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffd700,
+        emissive: 0xffaa00,
+        emissiveIntensity: 0.4,
+        metalness: 0.8,
+        roughness: 0.2
+    });
+
+    // 손잡이 (원형 고리)
+    const handleRing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.15, 0.04, 8, 16),
+        keyMaterial
+    );
+    handleRing.rotation.y = Math.PI / 2;
+    handleRing.castShadow = true;
+    key.add(handleRing);
+
+    // 목 부분 (긴 막대)
+    const shaft = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.5, 0.06),
+        keyMaterial
+    );
+    shaft.position.set(0, -0.35, 0);
+    shaft.castShadow = true;
+    key.add(shaft);
+
+    // 머리 부분 (이빨)
+    const keyHead = new THREE.Mesh(
+        new THREE.BoxGeometry(0.25, 0.08, 0.06),
+        keyMaterial
+    );
+    keyHead.position.set(0, -0.6, 0);
+    keyHead.castShadow = true;
+    key.add(keyHead);
+
+    // 이빨 1
+    const tooth1 = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.12, 0.06),
+        keyMaterial
+    );
+    tooth1.position.set(-0.08, -0.66, 0);
+    tooth1.castShadow = true;
+    key.add(tooth1);
+
+    // 이빨 2
+    const tooth2 = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.08, 0.06),
+        keyMaterial
+    );
+    tooth2.position.set(0.08, -0.68, 0);
+    tooth2.castShadow = true;
+    key.add(tooth2);
+
+    return key;
+}
 
 // 보물상자 관련 변수
 let treasureMesh = null;
@@ -495,10 +548,8 @@ function createGameObjects() {
 
     // 열쇠 생성
     if (keyMesh) scene.remove(keyMesh);
-    keyMesh = new THREE.Mesh(keyGeometry, keyMaterial.clone());
-    keyMesh.position.set(-12, 0.25, 0);
-    keyMesh.rotation.x = Math.PI;
-    keyMesh.castShadow = true;
+    keyMesh = createGoldenKey();
+    keyMesh.position.set(-12, 0.5, 0);
     keyMesh.keyName = '금색 열쇠';
     scene.add(keyMesh);
 
@@ -806,13 +857,7 @@ function attackEnemy() {
             }
             updateHealthUI();
             console.log('*** 적 처치! ***');
-
-            // 모든 적을 처치하면 승리
-            if (enemies.length === 0) {
-                setTimeout(() => {
-                    showGameOver('승리!', true);
-                }, 100);
-            }
+            // 모든 적을 처치해도 게임이 끝나지 않음 (보물상자를 열어야 함)
         } else {
             // 체력바 업데이트
             updateHealthUI();
@@ -1210,7 +1255,7 @@ function animate() {
         // 이동 방향이 있을 때만 회전 (자연스러운 카메라 회전)
         if (moveX !== 0 || moveZ !== 0) {
             // 이동 방향에 따른 목표 회전 각도 계산
-            const targetRotation = Math.atan2(moveX, moveZ);
+            const targetRotation = Math.atan2(moveX, -moveZ);
 
             // 부드러운 회전 (보간)
             const rotationSpeed = 10; // 회전 속도 (높을수록 빠름)
