@@ -64,39 +64,46 @@ function createBlockMaterials(isTopBlock, colorIndex) {
     }
 }
 
-// 언덕 정의 (위치와 높이) - 복층으로 높게 쌓기
+// 언덕 정의 (위치와 높이) - 계단식으로 쌓기
 const hills = [
-    { x: -12, z: -12, height: 7, colorIndex: 0 },  // 왼쪽 위 - 초록
-    { x: 12, z: -12, height: 5, colorIndex: 1 },   // 오른쪽 위 - 회색
-    { x: -12, z: 12, height: 6, colorIndex: 2 },   // 왼쪽 아래 - 노랑
-    { x: 12, z: 12, height: 7, colorIndex: 3 },    // 오른쪽 아래 - 갈색
-    { x: 0, z: -12, height: 5, colorIndex: 0 },    // 위 중앙 - 초록
+    { x: -12, z: -12, height: 7, colorIndex: 0, direction: 'se' },  // 왼쪽 위 - 초록 - 남동쪽 계단
+    { x: 12, z: -12, height: 5, colorIndex: 1, direction: 'sw' },   // 오른쪽 위 - 회색 - 남서쪽 계단
+    { x: -12, z: 12, height: 6, colorIndex: 2, direction: 'ne' },   // 왼쪽 아래 - 노랑 - 북동쪽 계단
+    { x: 12, z: 12, height: 7, colorIndex: 3, direction: 'nw' },    // 오른쪽 아래 - 갈색 - 북서쪽 계단
+    { x: 0, z: -12, height: 5, colorIndex: 0, direction: 's' },     // 위 중앙 - 초록 - 남쪽 계단
 ];
 
-// 언덕 블록 생성
+// 계단식 언덕 블록 생성
 hills.forEach(hill => {
     for (let h = 0; h < hill.height; h++) {
         const blockY = h * blockHeight;
         const isTopBlock = (h === hill.height - 1);
 
+        // 계단 오프셋 계산 (중앙에서 안쪽으로)
+        let offsetX = 0;
+        let offsetZ = 0;
+
+        if (hill.direction.includes('n')) offsetZ = h * blockSize * 0.3;  // 북쪽으로
+        if (hill.direction.includes('s')) offsetZ = -h * blockSize * 0.3; // 남쪽으로
+        if (hill.direction.includes('e')) offsetX = h * blockSize * 0.3;  // 동쪽으로
+        if (hill.direction.includes('w')) offsetX = -h * blockSize * 0.3; // 서쪽으로
+
         const blockGeometry = new THREE.BoxGeometry(blockSize, blockHeight, blockSize);
         const blockMaterials = createBlockMaterials(isTopBlock, hill.colorIndex);
         const block = new THREE.Mesh(blockGeometry, blockMaterials);
 
-        block.position.set(hill.x, blockY + blockHeight / 2, hill.z);
+        block.position.set(hill.x + offsetX, blockY + blockHeight / 2, hill.z + offsetZ);
         block.receiveShadow = true;
         block.castShadow = true;
 
-        // 충돌 감지를 위한 데이터 저장
-        if (isTopBlock) {
-            block.userData.isHill = true;
-            block.userData.height = blockY + blockHeight;
-            block.userData.minX = hill.x - blockSize / 2;
-            block.userData.maxX = hill.x + blockSize / 2;
-            block.userData.minZ = hill.z - blockSize / 2;
-            block.userData.maxZ = hill.z + blockSize / 2;
-            terrainTiles.push(block);
-        }
+        // 모든 블록에 충돌 감지 데이터 저장 (계단을 밟을 수 있게)
+        block.userData.isHill = true;
+        block.userData.height = blockY + blockHeight;
+        block.userData.minX = block.position.x - blockSize / 2;
+        block.userData.maxX = block.position.x + blockSize / 2;
+        block.userData.minZ = block.position.z - blockSize / 2;
+        block.userData.maxZ = block.position.z + blockSize / 2;
+        terrainTiles.push(block);
 
         scene.add(block);
     }
@@ -1255,7 +1262,7 @@ function animate() {
         // 이동 방향이 있을 때만 회전 (자연스러운 카메라 회전)
         if (moveX !== 0 || moveZ !== 0) {
             // 이동 방향에 따른 목표 회전 각도 계산
-            const targetRotation = Math.atan2(moveX, -moveZ);
+            const targetRotation = Math.atan2(-moveX, -moveZ);
 
             // 부드러운 회전 (보간)
             const rotationSpeed = 10; // 회전 속도 (높을수록 빠름)
