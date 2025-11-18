@@ -346,55 +346,44 @@ let isAttacking = false; // 공격 애니메이션 중인지 여부
 function createSword() {
     const sword = new THREE.Group();
 
-    // 검날 (은색, 긴 박스)
+    // 검날 (은색, 긴 박스) - BasicMaterial로 변경하여 조명 없이도 보이게
     const blade = new THREE.Mesh(
         new THREE.BoxGeometry(0.08, 0.6, 0.02),
-        new THREE.MeshStandardMaterial({
-            color: 0xcccccc,
-            metalness: 0.8,
-            roughness: 0.2
+        new THREE.MeshBasicMaterial({
+            color: 0xcccccc
         })
     );
     blade.position.y = 0.3;
-    blade.castShadow = true;
     sword.add(blade);
 
     // 가드 (금색 십자가)
     const guard = new THREE.Mesh(
         new THREE.BoxGeometry(0.25, 0.05, 0.05),
-        new THREE.MeshStandardMaterial({
-            color: 0xffd700,
-            metalness: 0.6,
-            roughness: 0.4
+        new THREE.MeshBasicMaterial({
+            color: 0xffd700
         })
     );
     guard.position.y = 0;
-    guard.castShadow = true;
     sword.add(guard);
 
     // 손잡이 (갈색)
     const handle = new THREE.Mesh(
         new THREE.BoxGeometry(0.06, 0.25, 0.06),
-        new THREE.MeshStandardMaterial({
-            color: 0x8b4513,
-            roughness: 0.8
+        new THREE.MeshBasicMaterial({
+            color: 0x8b4513
         })
     );
     handle.position.y = -0.125;
-    handle.castShadow = true;
     sword.add(handle);
 
     // 손잡이 끝 (금색)
     const pommel = new THREE.Mesh(
         new THREE.BoxGeometry(0.1, 0.08, 0.1),
-        new THREE.MeshStandardMaterial({
-            color: 0xffd700,
-            metalness: 0.6,
-            roughness: 0.4
+        new THREE.MeshBasicMaterial({
+            color: 0xffd700
         })
     );
     pommel.position.y = -0.29;
-    pommel.castShadow = true;
     sword.add(pommel);
 
     return sword;
@@ -675,10 +664,16 @@ function pickupItem() {
 
             // 플레이어 손에 검 추가
             playerWeaponMesh = createSword();
-            playerWeaponMesh.position.set(0.3, -0.3, -0.5); // 카메라 기준 오른쪽 아래 앞
-            playerWeaponMesh.rotation.set(0, 0, Math.PI / 4); // 45도 기울임
-            playerWeaponMesh.scale.set(0.8, 0.8, 0.8); // 약간 작게
+            console.log('검 생성:', playerWeaponMesh);
+            console.log('검 자식 객체 수:', playerWeaponMesh.children.length);
+
+            playerWeaponMesh.position.set(0.4, -0.4, -0.6); // 카메라 기준 오른쪽 아래 앞
+            playerWeaponMesh.rotation.set(Math.PI / 6, 0, Math.PI / 4); // 각도 조정
+            playerWeaponMesh.scale.set(1.0, 1.0, 1.0); // 원래 크기로
             camera.add(playerWeaponMesh);
+
+            console.log('검이 카메라에 추가됨. 카메라 자식 수:', camera.children.length);
+            console.log('검 월드 위치:', playerWeaponMesh.getWorldPosition(new THREE.Vector3()));
 
             updateWeaponUI();
             console.log(`${weaponMesh.weaponName} 습득! 공격력이 증가했습니다!`);
@@ -1165,13 +1160,13 @@ function animate() {
     if (gameStarted && !gameCleared) {
         // 가장 최근에 누른 키의 방향으로 회전 (우선순위: forward > backward > left > right)
         if (keys.forward) {
-            playerRotation = Math.PI; // 위쪽(북쪽)을 바라봄
+            playerRotation = 0; // 위쪽(북쪽)을 바라봄
         } else if (keys.backward) {
-            playerRotation = 0; // 아래쪽(남쪽)을 바라봄
+            playerRotation = Math.PI; // 아래쪽(남쪽)을 바라봄
         } else if (keys.left) {
-            playerRotation = Math.PI / 2; // 왼쪽(서쪽)을 바라봄
+            playerRotation = -Math.PI / 2; // 왼쪽(서쪽)을 바라봄
         } else if (keys.right) {
-            playerRotation = -Math.PI / 2; // 오른쪽(동쪽)을 바라봄
+            playerRotation = Math.PI / 2; // 오른쪽(동쪽)을 바라봄
         }
 
         // 이동 처리
@@ -1179,16 +1174,16 @@ function animate() {
         let moveZ = 0;
 
         if (keys.forward) {
-            moveZ = -moveSpeed * delta;
+            moveZ = -moveSpeed * delta; // 위로 이동
         }
         if (keys.backward) {
-            moveZ = moveSpeed * delta;
+            moveZ = moveSpeed * delta; // 아래로 이동
         }
         if (keys.left) {
-            moveX = -moveSpeed * delta;
+            moveX = -moveSpeed * delta; // 왼쪽으로 이동
         }
         if (keys.right) {
-            moveX = moveSpeed * delta;
+            moveX = moveSpeed * delta; // 오른쪽으로 이동
         }
 
         // 새 위치 계산
