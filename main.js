@@ -707,10 +707,16 @@ function pickupItem() {
 
 // 플레이어 공격 함수
 function attackEnemy() {
-    if (isAttacking) return; // 이미 공격 중이면 무시
+    console.log('공격 시도! 플레이어 위치:', playerPosition, '회전:', playerRotation);
+
+    if (isAttacking) {
+        console.log('이미 공격 중입니다.');
+        return; // 이미 공격 중이면 무시
+    }
 
     // 검 휘두르기 애니메이션
     if (playerWeaponMesh) {
+        console.log('검 휘두르기 애니메이션 시작');
         isAttacking = true;
         const originalRotationX = playerWeaponMesh.rotation.x;
         const swingDuration = 200; // 200ms
@@ -734,10 +740,13 @@ function attackEnemy() {
             } else {
                 playerWeaponMesh.rotation.x = originalRotationX;
                 isAttacking = false;
+                console.log('검 휘두르기 애니메이션 종료');
             }
         };
 
         swingAnimation();
+    } else {
+        console.log('플레이어가 검을 들고 있지 않습니다.');
     }
 
     // 플레이어가 바라보는 방향 계산
@@ -747,28 +756,38 @@ function attackEnemy() {
         Math.cos(playerRotation)
     );
     playerDirection.normalize();
+    console.log('공격 방향:', playerDirection);
 
     // 레이캐스터로 앞쪽의 적 감지 (recursive true로 Group 자식까지 검사)
     const raycaster = new THREE.Raycaster(playerPosition, playerDirection);
     const intersects = raycaster.intersectObjects(enemies, true);
+    console.log('레이캐스트 결과:', intersects.length, '개의 교차점 발견');
 
     if (intersects.length > 0) {
+        console.log('첫 번째 교차점 거리:', intersects[0].distance);
         const distance = intersects[0].distance;
 
         // 공격 거리 체크 (3 유닛 이내)
         if (distance <= 3) {
             // 히트된 객체의 부모 Group(실제 적)을 찾기
             let hitEnemy = intersects[0].object;
+            console.log('히트된 객체:', hitEnemy);
+
             while (hitEnemy.parent && !enemies.includes(hitEnemy)) {
                 hitEnemy = hitEnemy.parent;
             }
 
+            console.log('찾은 적:', hitEnemy, '적 목록에 포함:', enemies.includes(hitEnemy));
+
             // 적이 아닌 경우 종료
-            if (!enemies.includes(hitEnemy)) return;
+            if (!enemies.includes(hitEnemy)) {
+                console.log('적이 아닙니다!');
+                return;
+            }
 
             // 공격력 적용 (무기 장착 시 1.5배)
             hitEnemy.health -= attackPower;
-            console.log(`적 공격! 남은 체력: ${hitEnemy.health}`);
+            console.log(`적 공격 성공! 남은 체력: ${hitEnemy.health}, 데미지: ${attackPower}`);
 
             // 적이 죽었으면 제거
             if (hitEnemy.health <= 0) {
@@ -802,7 +821,11 @@ function attackEnemy() {
                     }
                 }, 100);
             }
+        } else {
+            console.log('너무 멀어서 공격 실패! 거리:', distance);
         }
+    } else {
+        console.log('공격 범위 내에 적이 없습니다.');
     }
 }
 
