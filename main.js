@@ -323,7 +323,7 @@ function createGameObjects() {
 // 체력 시스템
 let playerHealth = 5;
 const maxPlayerHealth = 5;
-const enemyAttackDistance = 1.5; // 적이 공격할 수 있는 거리
+const enemyAttackDistance = 0.8; // 적이 공격할 수 있는 거리 (더 짧게 조정)
 const enemyAttackCooldown = 1000; // 1초마다 공격
 
 // 플레이어 위치 및 방향 관리
