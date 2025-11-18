@@ -64,39 +64,52 @@ function createBlockMaterials(isTopBlock, colorIndex) {
     }
 }
 
-// 언덕 정의 (위치와 높이) - 마인크래프트식으로 쌓아올리기
+// 언덕 정의 (위치와 높이) - 마인크래프트식 블록 무더기
 const hills = [
-    { x: -12, z: -12, height: 7, colorIndex: 0 },  // 왼쪽 위 - 초록
-    { x: 12, z: -12, height: 5, colorIndex: 1 },   // 오른쪽 위 - 회색
-    { x: -12, z: 12, height: 6, colorIndex: 2 },   // 왼쪽 아래 - 노랑
-    { x: 12, z: 12, height: 7, colorIndex: 3 },    // 오른쪽 아래 - 갈색
-    { x: 0, z: -12, height: 5, colorIndex: 0 },    // 위 중앙 - 초록
+    { x: -12, z: -12, height: 7, colorIndex: 0, size: 3 },  // 왼쪽 위 - 초록 - 3x3
+    { x: 12, z: -12, height: 5, colorIndex: 1, size: 2 },   // 오른쪽 위 - 회색 - 2x2
+    { x: -12, z: 12, height: 6, colorIndex: 2, size: 3 },   // 왼쪽 아래 - 노랑 - 3x3
+    { x: 12, z: 12, height: 7, colorIndex: 3, size: 2 },    // 오른쪽 아래 - 갈색 - 2x2
+    { x: 0, z: -12, height: 5, colorIndex: 0, size: 2 },    // 위 중앙 - 초록 - 2x2
 ];
 
-// 마인크래프트식 언덕 블록 생성 (수직으로 쌓아올림)
+// 마인크래프트식 언덕 블록 생성 (무더기처럼 쌓기)
 hills.forEach(hill => {
+    // 각 층마다 블록 생성
     for (let h = 0; h < hill.height; h++) {
         const blockY = h * blockHeight;
         const isTopBlock = (h === hill.height - 1);
 
-        const blockGeometry = new THREE.BoxGeometry(blockSize, blockHeight, blockSize);
-        const blockMaterials = createBlockMaterials(isTopBlock, hill.colorIndex);
-        const block = new THREE.Mesh(blockGeometry, blockMaterials);
+        // 층이 올라갈수록 크기가 작아지는 피라미드 형태
+        const layerSize = Math.max(1, hill.size - Math.floor(h / 2));
+        const offset = (hill.size - layerSize) * blockSize / 2;
 
-        block.position.set(hill.x, blockY + blockHeight / 2, hill.z);
-        block.receiveShadow = true;
-        block.castShadow = true;
+        // 해당 층의 블록들 생성
+        for (let x = 0; x < layerSize; x++) {
+            for (let z = 0; z < layerSize; z++) {
+                const blockGeometry = new THREE.BoxGeometry(blockSize, blockHeight, blockSize);
+                const blockMaterials = createBlockMaterials(isTopBlock && x === Math.floor(layerSize/2) && z === Math.floor(layerSize/2), hill.colorIndex);
+                const block = new THREE.Mesh(blockGeometry, blockMaterials);
 
-        // 모든 블록에 충돌 감지 데이터 저장
-        block.userData.isHill = true;
-        block.userData.height = blockY + blockHeight;
-        block.userData.minX = hill.x - blockSize / 2;
-        block.userData.maxX = hill.x + blockSize / 2;
-        block.userData.minZ = hill.z - blockSize / 2;
-        block.userData.maxZ = hill.z + blockSize / 2;
-        terrainTiles.push(block);
+                const posX = hill.x + (x - layerSize/2 + 0.5) * blockSize;
+                const posZ = hill.z + (z - layerSize/2 + 0.5) * blockSize;
 
-        scene.add(block);
+                block.position.set(posX, blockY + blockHeight / 2, posZ);
+                block.receiveShadow = true;
+                block.castShadow = true;
+
+                // 모든 블록에 충돌 감지 데이터 저장
+                block.userData.isHill = true;
+                block.userData.height = blockY + blockHeight;
+                block.userData.minX = posX - blockSize / 2;
+                block.userData.maxX = posX + blockSize / 2;
+                block.userData.minZ = posZ - blockSize / 2;
+                block.userData.maxZ = posZ + blockSize / 2;
+                terrainTiles.push(block);
+
+                scene.add(block);
+            }
+        }
     }
 });
 
@@ -815,6 +828,7 @@ const enemyAttackCooldown = 1000; // 1초마다 공격
 // 플레이어 위치 및 방향 관리
 const playerPosition = new THREE.Vector3(0, 1.6, 0);
 let playerRotation = 0; // Y축 회전 (라디안)
+let playerPitch = 0; // X축 회전 (상하 각도, 라디안)
 let playerVelocityY = 0; // Y축 속도 (점프/낙하)
 let isOnGround = false; // 지면에 있는지 여부
 
@@ -827,7 +841,9 @@ const playerEyeHeight = 1.6; // 플레이어 눈 높이
 function updateCameraPosition() {
     // 카메라를 플레이어 위치에 배치
     camera.position.copy(playerPosition);
+    camera.rotation.x = playerPitch;
     camera.rotation.y = playerRotation;
+    camera.rotation.order = 'YXZ'; // Y축 회전을 먼저 적용
 }
 
 // 미니맵 설정
@@ -1329,39 +1345,56 @@ document.addEventListener('keydown', (event) => {
         case 'KeyE':
             pickupItem();
             break;
+        case 'KeyU':
+            // 카메라 각도를 위로
+            playerPitch = Math.max(-Math.PI / 3, playerPitch - 0.05);
+            break;
+        case 'KeyD':
+            // 카메라 각도를 아래로
+            playerPitch = Math.min(Math.PI / 3, playerPitch + 0.05);
+            break;
         case 'Digit1':
             event.preventDefault();
-            // 황금 코인을 가지고 있고 아직 사용하지 않았다면
-            if (inventory.includes('황금 코인') && !hasUsedCoin && !goldenParticles) {
+            // 황금 코인을 가지고 있으면 사용 (여러 번 가능)
+            if (inventory.includes('황금 코인')) {
+                if (goldenParticles) {
+                    scene.remove(goldenParticles);
+                }
                 goldenParticles = createGoldenParticles();
                 scene.add(goldenParticles);
-                hasUsedCoin = true;
                 console.log('황금 파티클이 바닥에 생성되었습니다!');
             }
             break;
         case 'Digit2':
             event.preventDefault();
-            // 마법 수정을 가지고 있고 아직 사용하지 않았다면
-            if (inventory.includes('마법 수정') && !hasUsedCrystal && !sunMesh) {
+            // 마법 수정을 가지고 있으면 사용 (여러 번 가능)
+            if (inventory.includes('마법 수정')) {
+                if (sunMesh) {
+                    scene.remove(sunMesh);
+                }
                 sunMesh = createSun();
                 scene.add(sunMesh);
-                hasUsedCrystal = true;
                 console.log('하늘에 태양이 생성되었습니다!');
             }
             break;
         case 'Digit3':
             event.preventDefault();
-            // 요술지팡이를 가지고 있고 아직 사용하지 않았다면
-            if (inventory.includes('요술지팡이') && !hasUsedWand && !moonMesh) {
+            // 요술지팡이를 가지고 있으면 사용 (여러 번 가능)
+            if (inventory.includes('요술지팡이')) {
                 // 하늘을 밤하늘로 변경
                 scene.background = new THREE.Color(0x000033);
+                if (moonMesh) {
+                    scene.remove(moonMesh);
+                }
+                if (stars) {
+                    scene.remove(stars);
+                }
                 // 달 생성
                 moonMesh = createMoon();
                 scene.add(moonMesh);
                 // 별들 생성
                 stars = createStars();
                 scene.add(stars);
-                hasUsedWand = true;
                 console.log('밤하늘이 되었습니다! 달과 별이 나타났습니다!');
             }
             break;
@@ -1553,10 +1586,25 @@ function animate() {
             moveX = moveSpeed * delta; // 오른쪽으로 이동
         }
 
-        // 이동 방향이 있을 때만 회전 (즉시 방향 전환)
+        // 이동 방향이 있을 때만 회전 (부드러운 회전)
         if (moveX !== 0 || moveZ !== 0) {
-            // 이동 방향에 따른 목표 회전 각도 계산 후 즉시 적용
-            playerRotation = Math.atan2(-moveX, -moveZ);
+            // 이동 방향에 따른 목표 회전 각도 계산
+            const targetRotation = Math.atan2(-moveX, -moveZ);
+
+            // 부드러운 회전 (마인크래프트 스타일)
+            const rotationSpeed = 8; // 회전 속도
+            let rotationDiff = targetRotation - playerRotation;
+
+            // 각도 차이를 -PI ~ PI 범위로 정규화 (최단 경로로 회전)
+            while (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
+            while (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
+
+            // 부드럽게 회전
+            playerRotation += rotationDiff * rotationSpeed * delta;
+
+            // 각도를 -PI ~ PI 범위로 유지
+            while (playerRotation > Math.PI) playerRotation -= 2 * Math.PI;
+            while (playerRotation < -Math.PI) playerRotation += 2 * Math.PI;
         }
 
         // 새 위치 계산
