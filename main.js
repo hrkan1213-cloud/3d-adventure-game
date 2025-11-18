@@ -99,81 +99,73 @@ cube.position.set(0, 0.5, -3);
 cube.castShadow = true;
 scene.add(cube);
 
-// 적(빨간 큐브) 2개 추가
-const enemies = [];
+// 적 관련 변수
+let enemies = [];
 const enemyGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
 const enemyMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-
-// 적 1
-const enemy1 = new THREE.Mesh(enemyGeometry, enemyMaterial);
-enemy1.position.set(-3, 0.4, -3);
-enemy1.castShadow = true;
-enemy1.health = 3;
-enemy1.lastAttackTime = 0;
-scene.add(enemy1);
-enemies.push(enemy1);
-
-// 적 2
-const enemy2 = new THREE.Mesh(enemyGeometry, enemyMaterial);
-enemy2.position.set(3, 0.4, 2);
-enemy2.castShadow = true;
-enemy2.health = 3;
-enemy2.lastAttackTime = 0;
-scene.add(enemy2);
-enemies.push(enemy2);
-
-// 적 이동 속도
 const enemySpeed = 1.5;
 
-// 아이템 생성 (노란 구)
-const items = [];
+// 난이도 설정
+let currentDifficulty = null;
+const difficultySettings = {
+    easy: { enemyCount: 2, enemyHealth: 3 },
+    normal: { enemyCount: 3, enemyHealth: 4 },
+    hard: { enemyCount: 4, enemyHealth: 6 }
+};
+
+// 적 생성 함수
+function createEnemies(difficulty) {
+    // 기존 적 제거
+    enemies.forEach(enemy => scene.remove(enemy));
+    enemies = [];
+
+    const settings = difficultySettings[difficulty];
+    const positions = [
+        { x: -3, z: -3 },
+        { x: 3, z: 2 },
+        { x: -3, z: 3 },
+        { x: 3, z: -2 }
+    ];
+
+    for (let i = 0; i < settings.enemyCount; i++) {
+        const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial.clone());
+        enemy.position.set(positions[i].x, 0.4, positions[i].z);
+        enemy.castShadow = true;
+        enemy.health = settings.enemyHealth;
+        enemy.lastAttackTime = 0;
+        scene.add(enemy);
+        enemies.push(enemy);
+    }
+
+    updateHealthUI();
+}
+
+// 아이템 관련 변수
+let items = [];
 const itemGeometry = new THREE.SphereGeometry(0.3, 16, 16);
 const itemMaterial = new THREE.MeshStandardMaterial({
     color: 0xffd700,
     emissive: 0xffff00,
     emissiveIntensity: 0.3
 });
-
-// 아이템 1
-const item1 = new THREE.Mesh(itemGeometry, itemMaterial);
-item1.position.set(-2, 0.3, 2);
-item1.castShadow = true;
-item1.itemName = '황금 구슬';
-scene.add(item1);
-items.push(item1);
-
-// 아이템 2
-const item2 = new THREE.Mesh(itemGeometry, itemMaterial);
-item2.position.set(2, 0.3, -2);
-item2.castShadow = true;
-item2.itemName = '마법의 구슬';
-scene.add(item2);
-items.push(item2);
+const itemPickupDistance = 2.0;
 
 // 인벤토리 시스템
-const inventory = [];
-const itemPickupDistance = 2.0; // 아이템 습득 거리
+let inventory = [];
 
-// 무기 생성 (파란 원기둥)
-let weapon = null;
+// 무기 관련 변수
+let weaponMesh = null;
 const weaponGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.8, 16);
 const weaponMaterial = new THREE.MeshStandardMaterial({
     color: 0x0066ff,
     emissive: 0x0033ff,
     emissiveIntensity: 0.2
 });
-const weaponMesh = new THREE.Mesh(weaponGeometry, weaponMaterial);
-weaponMesh.position.set(0, 0.4, 3);
-weaponMesh.rotation.z = Math.PI / 2; // 옆으로 눕히기
-weaponMesh.castShadow = true;
-weaponMesh.weaponName = '검';
-scene.add(weaponMesh);
-
-// 무기 시스템
 let equippedWeapon = null;
-let attackPower = 1; // 기본 공격력
+let attackPower = 1;
 
-// 금색 열쇠 생성 (작은 원뿔)
+// 열쇠 관련 변수
+let keyMesh = null;
 const keyGeometry = new THREE.ConeGeometry(0.2, 0.5, 8);
 const keyMaterial = new THREE.MeshStandardMaterial({
     color: 0xffd700,
@@ -181,14 +173,9 @@ const keyMaterial = new THREE.MeshStandardMaterial({
     emissiveIntensity: 0.4,
     metalness: 0.8
 });
-const keyMesh = new THREE.Mesh(keyGeometry, keyMaterial);
-keyMesh.position.set(-4, 0.25, 0);
-keyMesh.rotation.x = Math.PI; // 뒤집기
-keyMesh.castShadow = true;
-keyMesh.keyName = '금색 열쇠';
-scene.add(keyMesh);
 
-// 보라색 보물상자 생성 (큰 큐브)
+// 보물상자 관련 변수
+let treasureMesh = null;
 const treasureGeometry = new THREE.BoxGeometry(1.2, 1.2, 1.2);
 const treasureMaterial = new THREE.MeshStandardMaterial({
     color: 0x9932cc,
@@ -196,14 +183,57 @@ const treasureMaterial = new THREE.MeshStandardMaterial({
     emissiveIntensity: 0.3,
     metalness: 0.5
 });
-const treasureMesh = new THREE.Mesh(treasureGeometry, treasureMaterial);
-treasureMesh.position.set(4, 0.6, 0);
-treasureMesh.castShadow = true;
-scene.add(treasureMesh);
 
 // 게임 상태
 let hasKey = false;
 let gameCleared = false;
+let gameStarted = false;
+
+// 게임 오브젝트 생성 함수
+function createGameObjects() {
+    // 아이템 생성
+    items.forEach(item => scene.remove(item));
+    items = [];
+
+    const item1 = new THREE.Mesh(itemGeometry, itemMaterial.clone());
+    item1.position.set(-2, 0.3, 2);
+    item1.castShadow = true;
+    item1.itemName = '황금 구슬';
+    scene.add(item1);
+    items.push(item1);
+
+    const item2 = new THREE.Mesh(itemGeometry, itemMaterial.clone());
+    item2.position.set(2, 0.3, -2);
+    item2.castShadow = true;
+    item2.itemName = '마법의 구슬';
+    scene.add(item2);
+    items.push(item2);
+
+    // 무기 생성
+    if (weaponMesh) scene.remove(weaponMesh);
+    weaponMesh = new THREE.Mesh(weaponGeometry, weaponMaterial.clone());
+    weaponMesh.position.set(0, 0.4, 3);
+    weaponMesh.rotation.z = Math.PI / 2;
+    weaponMesh.castShadow = true;
+    weaponMesh.weaponName = '검';
+    scene.add(weaponMesh);
+
+    // 열쇠 생성
+    if (keyMesh) scene.remove(keyMesh);
+    keyMesh = new THREE.Mesh(keyGeometry, keyMaterial.clone());
+    keyMesh.position.set(-4, 0.25, 0);
+    keyMesh.rotation.x = Math.PI;
+    keyMesh.castShadow = true;
+    keyMesh.keyName = '금색 열쇠';
+    scene.add(keyMesh);
+
+    // 보물상자 생성
+    if (treasureMesh) scene.remove(treasureMesh);
+    treasureMesh = new THREE.Mesh(treasureGeometry, treasureMaterial.clone());
+    treasureMesh.position.set(4, 0.6, 0);
+    treasureMesh.castShadow = true;
+    scene.add(treasureMesh);
+}
 
 // 체력 시스템
 let playerHealth = 5;
@@ -305,7 +335,7 @@ function pickupItem() {
         const distance = playerPos.distanceTo(treasureMesh.position);
         if (distance <= itemPickupDistance) {
             gameCleared = true;
-            alert('게임 클리어!');
+            showGameOver('게임 클리어!', true);
             controls.unlock();
             return;
         }
@@ -375,7 +405,7 @@ function attackEnemy() {
                 // 모든 적을 처치하면 승리
                 if (enemies.length === 0) {
                     setTimeout(() => {
-                        alert('승리! 모든 적을 처치했습니다!');
+                        showGameOver('승리!', true);
                     }, 100);
                 }
             }
@@ -627,60 +657,62 @@ function animate() {
         treasureMesh.material.emissiveIntensity = glowIntensity;
     }
 
-    // 적 AI - 플레이어를 향해 이동 및 공격
-    const playerPos = controls.getObject().position;
-    enemies.forEach((enemy) => {
-        // 플레이어 방향 계산
-        const direction = new THREE.Vector3();
-        direction.subVectors(playerPos, enemy.position);
-        direction.y = 0; // Y축 이동 방지 (같은 높이 유지)
+    // 적 AI - 플레이어를 향해 이동 및 공격 (게임이 시작되고 클리어되지 않았을 때만)
+    if (gameStarted && !gameCleared) {
+        const playerPos = controls.getObject().position;
+        enemies.forEach((enemy) => {
+            // 플레이어 방향 계산
+            const direction = new THREE.Vector3();
+            direction.subVectors(playerPos, enemy.position);
+            direction.y = 0; // Y축 이동 방지 (같은 높이 유지)
 
-        // 플레이어와의 거리 계산
-        const distanceToPlayer = direction.length();
-        direction.normalize();
+            // 플레이어와의 거리 계산
+            const distanceToPlayer = direction.length();
+            direction.normalize();
 
-        // 플레이어 공격 (일정 거리 이내일 때)
-        if (distanceToPlayer <= enemyAttackDistance) {
-            if (time - enemy.lastAttackTime >= enemyAttackCooldown) {
-                playerHealth -= 1;
-                enemy.lastAttackTime = time;
-                updateHealthUI();
+            // 플레이어 공격 (일정 거리 이내일 때)
+            if (distanceToPlayer <= enemyAttackDistance) {
+                if (time - enemy.lastAttackTime >= enemyAttackCooldown) {
+                    playerHealth -= 1;
+                    enemy.lastAttackTime = time;
+                    updateHealthUI();
 
-                // 플레이어 체력이 0이 되면 게임 오버
-                if (playerHealth <= 0) {
-                    alert('게임 오버! 새로고침하여 다시 시작하세요.');
-                    controls.unlock();
+                    // 플레이어 체력이 0이 되면 게임 오버
+                    if (playerHealth <= 0) {
+                        showGameOver('게임 오버!', false);
+                        controls.unlock();
+                    }
+                }
+            } else {
+                // 공격 범위 밖이면 플레이어를 향해 이동
+                const moveDistance = enemySpeed * delta;
+                const newX = enemy.position.x + direction.x * moveDistance;
+                const newZ = enemy.position.z + direction.z * moveDistance;
+
+                // 벽 충돌 체크 (적도 벽을 통과하지 못하게)
+                const enemyRadius = 0.4;
+                const enemyBounds = {
+                    minX: -roomSize / 2 + wallThickness / 2 + enemyRadius,
+                    maxX: roomSize / 2 - wallThickness / 2 - enemyRadius,
+                    minZ: -roomSize / 2 + wallThickness / 2 + enemyRadius,
+                    maxZ: roomSize / 2 - wallThickness / 2 - enemyRadius
+                };
+
+                // X축 이동 및 경계 체크
+                if (newX >= enemyBounds.minX && newX <= enemyBounds.maxX) {
+                    enemy.position.x = newX;
+                }
+
+                // Z축 이동 및 경계 체크
+                if (newZ >= enemyBounds.minZ && newZ <= enemyBounds.maxZ) {
+                    enemy.position.z = newZ;
                 }
             }
-        } else {
-            // 공격 범위 밖이면 플레이어를 향해 이동
-            const moveDistance = enemySpeed * delta;
-            const newX = enemy.position.x + direction.x * moveDistance;
-            const newZ = enemy.position.z + direction.z * moveDistance;
 
-            // 벽 충돌 체크 (적도 벽을 통과하지 못하게)
-            const enemyRadius = 0.4;
-            const enemyBounds = {
-                minX: -roomSize / 2 + wallThickness / 2 + enemyRadius,
-                maxX: roomSize / 2 - wallThickness / 2 - enemyRadius,
-                minZ: -roomSize / 2 + wallThickness / 2 + enemyRadius,
-                maxZ: roomSize / 2 - wallThickness / 2 - enemyRadius
-            };
-
-            // X축 이동 및 경계 체크
-            if (newX >= enemyBounds.minX && newX <= enemyBounds.maxX) {
-                enemy.position.x = newX;
-            }
-
-            // Z축 이동 및 경계 체크
-            if (newZ >= enemyBounds.minZ && newZ <= enemyBounds.maxZ) {
-                enemy.position.z = newZ;
-            }
-        }
-
-        // 적이 플레이어를 향하도록 회전
-        enemy.rotation.y += 0.02;
-    });
+            // 적이 플레이어를 향하도록 회전
+            enemy.rotation.y += 0.02;
+        });
+    }
 
     // 컨트롤이 잠겨있을 때만 이동 가능
     if (controls.isLocked) {
@@ -731,7 +763,65 @@ function animate() {
     drawMinimap(controlsObject.position.x, controlsObject.position.z);
 }
 
-// 게임 시작 시 UI 초기화
+// 게임오버/승리 모달 표시 함수
+function showGameOver(message, isVictory) {
+    gameCleared = true;
+    const modal = document.getElementById('game-over-modal');
+    const titleElement = document.getElementById('game-over-text');
+
+    titleElement.textContent = message;
+    if (isVictory) {
+        titleElement.classList.add('victory');
+    } else {
+        titleElement.classList.remove('victory');
+    }
+
+    modal.classList.remove('hidden');
+}
+
+// 게임 시작 함수 (난이도 선택 시 호출)
+window.startGame = function(difficulty) {
+    currentDifficulty = difficulty;
+
+    // 난이도 선택 모달 숨기기
+    document.getElementById('difficulty-modal').classList.add('hidden');
+
+    // 게임 상태 초기화
+    playerHealth = maxPlayerHealth;
+    inventory = [];
+    equippedWeapon = null;
+    attackPower = 1;
+    hasKey = false;
+    gameCleared = false;
+    gameStarted = true;
+
+    // 플레이어 위치 초기화
+    controls.getObject().position.set(0, 1.6, 0);
+
+    // 게임 오브젝트 생성
+    createGameObjects();
+    createEnemies(difficulty);
+
+    // UI 업데이트
+    updateHealthUI();
+    updateInventoryUI();
+    updateWeaponUI();
+};
+
+// 게임 재시작 함수
+window.restartGame = function() {
+    // 게임오버 모달 숨기기
+    document.getElementById('game-over-modal').classList.add('hidden');
+
+    // 난이도 선택 모달 표시
+    document.getElementById('difficulty-modal').classList.remove('hidden');
+
+    // 게임 상태 초기화
+    gameStarted = false;
+    gameCleared = false;
+};
+
+// 게임 시작 시 UI 초기화 (처음에는 난이도 선택 모달만 표시)
 updateHealthUI();
 updateInventoryUI();
 updateWeaponUI();

@@ -139,9 +139,162 @@
             font-size: 12px;
             display: inline-block;
         }
+
+        #difficulty-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        #difficulty-modal.hidden {
+            display: none;
+        }
+
+        .modal-content {
+            background: rgba(20, 20, 20, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            border: 3px solid #444;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .modal-title {
+            color: #fff;
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .difficulty-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .difficulty-btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border: 3px solid;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .difficulty-btn.easy {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border-color: #2e7d32;
+        }
+
+        .difficulty-btn.normal {
+            background: linear-gradient(135deg, #FF9800, #F57C00);
+            border-color: #E65100;
+        }
+
+        .difficulty-btn.hard {
+            background: linear-gradient(135deg, #F44336, #D32F2F);
+            border-color: #B71C1C;
+        }
+
+        .difficulty-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        .difficulty-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        #game-over-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        #game-over-modal.hidden {
+            display: none;
+        }
+
+        .game-over-title {
+            color: #ff4444;
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
+        }
+
+        .game-over-title.victory {
+            color: #44ff44;
+        }
+
+        .restart-btn {
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            border: 3px solid #0D47A1;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            margin-top: 20px;
+        }
+
+        .restart-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(33, 150, 243, 0.8);
+        }
     </style>
 </head>
 <body>
+    <div id="difficulty-modal">
+        <div class="modal-content">
+            <div class="modal-title">난이도 선택</div>
+            <div class="difficulty-buttons">
+                <button class="difficulty-btn easy" onclick="startGame('easy')">
+                    쉬움
+                    <div class="difficulty-info">적 2마리 (체력 3)</div>
+                </button>
+                <button class="difficulty-btn normal" onclick="startGame('normal')">
+                    보통
+                    <div class="difficulty-info">적 3마리 (체력 4)</div>
+                </button>
+                <button class="difficulty-btn hard" onclick="startGame('hard')">
+                    어려움
+                    <div class="difficulty-info">적 4마리 (체력 6)</div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-over-modal" class="hidden">
+        <div class="modal-content">
+            <div class="game-over-title" id="game-over-text">게임 오버!</div>
+            <button class="restart-btn" onclick="restartGame()">재시작</button>
+        </div>
+    </div>
     <div id="minimap">
         <canvas id="minimap-canvas"></canvas>
     </div>
