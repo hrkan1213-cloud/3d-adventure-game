@@ -338,6 +338,113 @@ function createGoldenCoin() {
     return coin;
 }
 
+// 마인크래프트 스타일 수정 생성 함수
+function createCrystal() {
+    const crystal = new THREE.Group();
+
+    const crystalMaterial = new THREE.MeshStandardMaterial({
+        color: 0x00ffff,
+        emissive: 0x0088ff,
+        emissiveIntensity: 0.5,
+        metalness: 0.3,
+        roughness: 0.2,
+        transparent: true,
+        opacity: 0.9
+    });
+
+    // 중앙 크리스탈 (팔각형 기둥)
+    const mainCrystal = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.15, 0.6, 8),
+        crystalMaterial
+    );
+    mainCrystal.castShadow = true;
+    crystal.add(mainCrystal);
+
+    // 상단 뾰족한 부분
+    const topPyramid = new THREE.Mesh(
+        new THREE.ConeGeometry(0.15, 0.3, 8),
+        crystalMaterial
+    );
+    topPyramid.position.y = 0.45;
+    topPyramid.castShadow = true;
+    crystal.add(topPyramid);
+
+    // 하단 뾰족한 부분
+    const bottomPyramid = new THREE.Mesh(
+        new THREE.ConeGeometry(0.15, 0.2, 8),
+        crystalMaterial
+    );
+    bottomPyramid.position.y = -0.4;
+    bottomPyramid.rotation.z = Math.PI;
+    bottomPyramid.castShadow = true;
+    crystal.add(bottomPyramid);
+
+    return crystal;
+}
+
+// 특수 효과 관련 변수
+let goldenParticles = null;
+let sunMesh = null;
+let hasUsedCoin = false;
+let hasUsedCrystal = false;
+
+// 황금 파티클 생성 함수
+function createGoldenParticles() {
+    const particleCount = 3000;
+    const positions = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * roomSize;
+        positions[i * 3 + 1] = 0.05;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * roomSize;
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const material = new THREE.PointsMaterial({
+        color: 0xffd700,
+        size: 0.1,
+        transparent: true,
+        opacity: 0.8,
+        emissive: 0xffaa00,
+        emissiveIntensity: 0.5
+    });
+
+    return new THREE.Points(geometry, material);
+}
+
+// 태양 생성 함수
+function createSun() {
+    const sun = new THREE.Group();
+
+    // 태양 본체
+    const sunBody = new THREE.Mesh(
+        new THREE.SphereGeometry(3, 32, 32),
+        new THREE.MeshBasicMaterial({
+            color: 0xffff00,
+            emissive: 0xffaa00,
+            emissiveIntensity: 1
+        })
+    );
+    sun.add(sunBody);
+
+    // 태양 광채 (더 큰 반투명 구)
+    const sunGlow = new THREE.Mesh(
+        new THREE.SphereGeometry(3.5, 32, 32),
+        new THREE.MeshBasicMaterial({
+            color: 0xffdd00,
+            transparent: true,
+            opacity: 0.3
+        })
+    );
+    sun.add(sunGlow);
+
+    sun.position.set(15, 20, -15);
+
+    return sun;
+}
+
 // 무기 관련 변수
 let weaponMesh = null;
 let equippedWeapon = null;
@@ -539,9 +646,9 @@ function createGameObjects() {
     scene.add(item1);
     items.push(item1);
 
-    const item2 = createGoldenCoin();
+    const item2 = createCrystal();
     item2.position.set(6, 0.3, -6);
-    item2.itemName = '황금 코인';
+    item2.itemName = '마법 수정';
     scene.add(item2);
     items.push(item2);
 
@@ -1090,6 +1197,26 @@ document.addEventListener('keydown', (event) => {
         case 'KeyE':
             pickupItem();
             break;
+        case 'Digit1':
+            event.preventDefault();
+            // 황금 코인을 가지고 있고 아직 사용하지 않았다면
+            if (inventory.includes('황금 코인') && !hasUsedCoin && !goldenParticles) {
+                goldenParticles = createGoldenParticles();
+                scene.add(goldenParticles);
+                hasUsedCoin = true;
+                console.log('황금 파티클이 바닥에 생성되었습니다!');
+            }
+            break;
+        case 'Digit2':
+            event.preventDefault();
+            // 마법 수정을 가지고 있고 아직 사용하지 않았다면
+            if (inventory.includes('마법 수정') && !hasUsedCrystal && !sunMesh) {
+                sunMesh = createSun();
+                scene.add(sunMesh);
+                hasUsedCrystal = true;
+                console.log('하늘에 태양이 생성되었습니다!');
+            }
+            break;
     }
 });
 
@@ -1157,6 +1284,16 @@ function animate() {
         treasureMesh.rotation.y += 0.005;
         // 보물상자 위아래 떠다니는 효과
         treasureMesh.position.y = 0.6 + Math.sin(time * 0.002) * 0.05;
+    }
+
+    // 태양 회전 효과
+    if (sunMesh) {
+        sunMesh.rotation.y += 0.003;
+        // 태양 광채 펄스 효과
+        const glowScale = 1 + Math.sin(time * 0.001) * 0.1;
+        if (sunMesh.children[1]) {
+            sunMesh.children[1].scale.set(glowScale, glowScale, glowScale);
+        }
     }
 
     // 적 AI - 플레이어를 향해 이동 및 공격 (게임이 시작되고 클리어되지 않았을 때만)
@@ -1353,6 +1490,18 @@ window.startGame = function(difficulty) {
     hasKey = false;
     gameCleared = false;
     gameStarted = true;
+
+    // 특수 효과 초기화
+    hasUsedCoin = false;
+    hasUsedCrystal = false;
+    if (goldenParticles) {
+        scene.remove(goldenParticles);
+        goldenParticles = null;
+    }
+    if (sunMesh) {
+        scene.remove(sunMesh);
+        sunMesh = null;
+    }
 
     // 플레이어가 들고 있던 검 제거
     if (playerWeaponMesh) {
