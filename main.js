@@ -140,6 +140,18 @@ const wallHeight = 3;
 const wallThickness = 0.2;
 const roomSize = 30; // 맵 크기 확대
 
+// 바닥 생성 (풀밭)
+const floorGeometry = new THREE.PlaneGeometry(roomSize, roomSize);
+const floorMaterial = new THREE.MeshStandardMaterial({
+    color: 0x5a8f3a, // 진한 초록색 풀
+    roughness: 0.9
+});
+const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+floor.rotation.x = -Math.PI / 2; // 수평으로 회전
+floor.position.y = 0;
+floor.receiveShadow = true;
+scene.add(floor);
+
 // 북쪽 벽
 const northWall = new THREE.Mesh(
     new THREE.BoxGeometry(roomSize, wallHeight, wallThickness),
@@ -706,11 +718,14 @@ function pickupItem() {
 
 // 플레이어 공격 함수
 function attackEnemy() {
-    console.log('공격 시도! 플레이어 위치:', playerPosition, '회전:', playerRotation);
+    console.log('=== 공격 시도 ===');
+    console.log('플레이어 위치:', playerPosition.x, playerPosition.y, playerPosition.z);
+    console.log('플레이어 회전:', playerRotation);
+    console.log('적 수:', enemies.length);
 
     if (isAttacking) {
         console.log('이미 공격 중입니다.');
-        return; // 이미 공격 중이면 무시
+        return;
     }
 
     // 검 휘두르기 애니메이션
@@ -718,8 +733,8 @@ function attackEnemy() {
         console.log('검 휘두르기 애니메이션 시작');
         isAttacking = true;
         const originalRotationZ = playerWeaponMesh.rotation.z;
-        const swingDuration = 250; // 250ms
-        const swingAngle = Math.PI * 0.6; // 약 108도 회전
+        const swingDuration = 250;
+        const swingAngle = Math.PI * 0.6;
         const startTime = Date.now();
 
         const swingAnimation = () => {
@@ -727,14 +742,11 @@ function attackEnemy() {
             const progress = Math.min(elapsed / swingDuration, 1);
 
             if (progress < 0.4) {
-                // 전반부: 검을 위로 들어올림 (준비 동작)
                 playerWeaponMesh.rotation.z = originalRotationZ - swingAngle * 0.3 * (progress / 0.4);
             } else if (progress < 0.7) {
-                // 중반부: 검을 빠르게 휘두름
                 const swingProgress = (progress - 0.4) / 0.3;
                 playerWeaponMesh.rotation.z = originalRotationZ - swingAngle * 0.3 + swingAngle * swingProgress;
             } else {
-                // 후반부: 원위치로 복귀
                 const returnProgress = (progress - 0.7) / 0.3;
                 playerWeaponMesh.rotation.z = originalRotationZ + swingAngle * 0.7 - swingAngle * 0.7 * returnProgress;
             }
@@ -753,85 +765,94 @@ function attackEnemy() {
         console.log('플레이어가 검을 들고 있지 않습니다.');
     }
 
-    // 플레이어가 바라보는 방향 계산
-    // Three.js에서 rotation.y = 0일 때 -Z 방향을 바라보므로 부호 반전 필요
-    const playerDirection = new THREE.Vector3(
-        -Math.sin(playerRotation),
-        0,
-        -Math.cos(playerRotation)
-    );
-    playerDirection.normalize();
-    console.log('공격 방향:', playerDirection, 'playerRotation:', playerRotation);
+    // 거리 기반 공격 시스템 (더 안정적)
+    const attackDistance = 4; // 공격 거리
+    const attackAngle = Math.PI / 4; // 45도 각도 범위
 
-    // 레이캐스터로 앞쪽의 적 감지 (recursive true로 Group 자식까지 검사)
-    const raycaster = new THREE.Raycaster(playerPosition, playerDirection);
-    const intersects = raycaster.intersectObjects(enemies, true);
-    console.log('레이캐스트 결과:', intersects.length, '개의 교차점 발견');
+    console.log('모든 적 검사 시작...');
 
-    if (intersects.length > 0) {
-        console.log('첫 번째 교차점 거리:', intersects[0].distance);
-        const distance = intersects[0].distance;
+    let hitEnemy = null;
+    let minDistance = Infinity;
 
-        // 공격 거리 체크 (3 유닛 이내)
-        if (distance <= 3) {
-            // 히트된 객체의 부모 Group(실제 적)을 찾기
-            let hitEnemy = intersects[0].object;
-            console.log('히트된 객체:', hitEnemy);
+    enemies.forEach((enemy, index) => {
+        // 적과의 거리 계산
+        const distance = playerPosition.distanceTo(enemy.position);
+        console.log(`적 ${index + 1}: 위치(${enemy.position.x.toFixed(2)}, ${enemy.position.z.toFixed(2)}), 거리: ${distance.toFixed(2)}`);
 
-            while (hitEnemy.parent && !enemies.includes(hitEnemy)) {
-                hitEnemy = hitEnemy.parent;
+        if (distance <= attackDistance) {
+            // 플레이어에서 적으로의 방향 벡터
+            const toEnemy = new THREE.Vector3();
+            toEnemy.subVectors(enemy.position, playerPosition);
+            toEnemy.y = 0;
+            toEnemy.normalize();
+
+            // 플레이어가 바라보는 방향
+            const playerDir = new THREE.Vector3(
+                -Math.sin(playerRotation),
+                0,
+                -Math.cos(playerRotation)
+            );
+            playerDir.normalize();
+
+            // 두 벡터 사이의 각도 계산
+            const angle = playerDir.angleTo(toEnemy);
+            console.log(`  -> 각도 차이: ${(angle * 180 / Math.PI).toFixed(2)}도`);
+
+            // 각도 범위 내에 있고 가장 가까운 적 선택
+            if (angle <= attackAngle && distance < minDistance) {
+                hitEnemy = enemy;
+                minDistance = distance;
+                console.log(`  -> 공격 대상으로 선정!`);
             }
+        }
+    });
 
-            console.log('찾은 적:', hitEnemy, '적 목록에 포함:', enemies.includes(hitEnemy));
+    if (hitEnemy) {
+        // 공격력 적용
+        hitEnemy.health -= attackPower;
+        console.log(`*** 적 공격 성공! ***`);
+        console.log(`데미지: ${attackPower}, 남은 체력: ${hitEnemy.health}`);
 
-            // 적이 아닌 경우 종료
-            if (!enemies.includes(hitEnemy)) {
-                console.log('적이 아닙니다!');
-                return;
+        // 적이 죽었으면 제거
+        if (hitEnemy.health <= 0) {
+            scene.remove(hitEnemy);
+            const index = enemies.indexOf(hitEnemy);
+            if (index > -1) {
+                enemies.splice(index, 1);
             }
+            updateHealthUI();
+            console.log('*** 적 처치! ***');
 
-            // 공격력 적용 (무기 장착 시 1.5배)
-            hitEnemy.health -= attackPower;
-            console.log(`적 공격 성공! 남은 체력: ${hitEnemy.health}, 데미지: ${attackPower}`);
-
-            // 적이 죽었으면 제거
-            if (hitEnemy.health <= 0) {
-                scene.remove(hitEnemy);
-                const index = enemies.indexOf(hitEnemy);
-                if (index > -1) {
-                    enemies.splice(index, 1);
-                }
-                updateHealthUI();
-                console.log('적 처치!');
-
-                // 모든 적을 처치하면 승리
-                if (enemies.length === 0) {
-                    setTimeout(() => {
-                        showGameOver('승리!', true);
-                    }, 100);
-                }
-            } else {
-                // 체력바 업데이트
-                updateHealthUI();
-            }
-
-            // 시각적 피드백 (적 몸통 색 변경)
-            const body = hitEnemy.children.find(child => child.geometry && child.geometry.type === 'BoxGeometry' && child.position.y === 0.1);
-            if (body) {
-                const originalColor = body.material.color.getHex();
-                body.material.color.setHex(0xffaa00);
+            // 모든 적을 처치하면 승리
+            if (enemies.length === 0) {
                 setTimeout(() => {
-                    if (hitEnemy.health > 0) {
-                        body.material.color.setHex(originalColor);
-                    }
+                    showGameOver('승리!', true);
                 }, 100);
             }
         } else {
-            console.log('너무 멀어서 공격 실패! 거리:', distance);
+            // 체력바 업데이트
+            updateHealthUI();
+        }
+
+        // 시각적 피드백 (적 몸통 색 변경)
+        const body = hitEnemy.children.find(child =>
+            child.geometry &&
+            child.geometry.type === 'BoxGeometry' &&
+            Math.abs(child.position.y - 0.1) < 0.01
+        );
+        if (body) {
+            const originalColor = body.material.color.getHex();
+            body.material.color.setHex(0xffaa00);
+            setTimeout(() => {
+                if (hitEnemy.health > 0) {
+                    body.material.color.setHex(originalColor);
+                }
+            }, 100);
         }
     } else {
         console.log('공격 범위 내에 적이 없습니다.');
     }
+    console.log('=== 공격 종료 ===\n');
 }
 
 // 미니맵 그리기 함수
