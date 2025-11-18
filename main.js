@@ -798,6 +798,9 @@ window.startGame = function(difficulty) {
     updateHealthUI();
     updateInventoryUI();
     updateWeaponUI();
+
+    // 포인터 락 활성화 (이동 및 마우스 조작 가능)
+    controls.lock();
 };
 
 // 게임 재시작 함수
