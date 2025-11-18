@@ -112,6 +112,73 @@ controls.addEventListener('unlock', () => {
 
 scene.add(controls.getObject());
 
+// 키보드 입력 상태 추적
+const keys = {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false
+};
+
+// 이동 속도
+const moveSpeed = 5.0;
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+
+// 플레이어 충돌 반경
+const playerRadius = 0.3;
+
+// 방 경계 (벽 안쪽)
+const roomBounds = {
+    minX: -roomSize / 2 + wallThickness / 2 + playerRadius,
+    maxX: roomSize / 2 - wallThickness / 2 - playerRadius,
+    minZ: -roomSize / 2 + wallThickness / 2 + playerRadius,
+    maxZ: roomSize / 2 - wallThickness / 2 - playerRadius
+};
+
+// 키보드 이벤트 리스너
+document.addEventListener('keydown', (event) => {
+    switch (event.code) {
+        case 'KeyW':
+        case 'ArrowUp':
+            keys.forward = true;
+            break;
+        case 'KeyS':
+        case 'ArrowDown':
+            keys.backward = true;
+            break;
+        case 'KeyA':
+        case 'ArrowLeft':
+            keys.left = true;
+            break;
+        case 'KeyD':
+        case 'ArrowRight':
+            keys.right = true;
+            break;
+    }
+});
+
+document.addEventListener('keyup', (event) => {
+    switch (event.code) {
+        case 'KeyW':
+        case 'ArrowUp':
+            keys.forward = false;
+            break;
+        case 'KeyS':
+        case 'ArrowDown':
+            keys.backward = false;
+            break;
+        case 'KeyA':
+        case 'ArrowLeft':
+            keys.left = false;
+            break;
+        case 'KeyD':
+        case 'ArrowRight':
+            keys.right = false;
+            break;
+    }
+});
+
 // 윈도우 리사이즈 처리
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -119,14 +186,62 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// 시간 추적 (프레임 독립적인 이동)
+let prevTime = performance.now();
+
 // 애니메이션 루프
 function animate() {
     requestAnimationFrame(animate);
+
+    const time = performance.now();
+    const delta = (time - prevTime) / 1000; // 초 단위로 변환
 
     // 큐브 회전 (시각적 효과)
     cube.rotation.x += 0.01;
     cube.rotation.y += 0.01;
 
+    // 컨트롤이 잠겨있을 때만 이동 가능
+    if (controls.isLocked) {
+        // 이동 방향 계산
+        direction.z = Number(keys.forward) - Number(keys.backward);
+        direction.x = Number(keys.right) - Number(keys.left);
+        direction.normalize(); // 대각선 이동 시 속도가 빨라지는 것 방지
+
+        // 속도 계산
+        velocity.z = direction.z * moveSpeed * delta;
+        velocity.x = direction.x * moveSpeed * delta;
+
+        // 카메라의 현재 위치 저장
+        const controlsObject = controls.getObject();
+        const newPosition = controlsObject.position.clone();
+
+        // 이동 적용 (카메라가 보는 방향 기준)
+        if (keys.forward || keys.backward) {
+            controls.moveForward(-velocity.z);
+        }
+        if (keys.left || keys.right) {
+            controls.moveRight(velocity.x);
+        }
+
+        // 충돌 검사 및 경계 제한
+        const pos = controlsObject.position;
+
+        // X축 경계 체크
+        if (pos.x < roomBounds.minX) {
+            pos.x = roomBounds.minX;
+        } else if (pos.x > roomBounds.maxX) {
+            pos.x = roomBounds.maxX;
+        }
+
+        // Z축 경계 체크
+        if (pos.z < roomBounds.minZ) {
+            pos.z = roomBounds.minZ;
+        } else if (pos.z > roomBounds.maxZ) {
+            pos.z = roomBounds.maxZ;
+        }
+    }
+
+    prevTime = time;
     renderer.render(scene, camera);
 }
 
