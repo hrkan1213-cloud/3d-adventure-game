@@ -103,7 +103,7 @@ scene.add(cube);
 let enemies = [];
 const enemyGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
 const enemyMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-const enemySpeed = 1.5;
+const enemySpeed = 0.8; // 적 이동 속도 감소
 
 // 난이도 설정
 let currentDifficulty = null;
@@ -556,23 +556,19 @@ const roomBounds = {
 // 키보드 이벤트 리스너
 document.addEventListener('keydown', (event) => {
     switch (event.code) {
-        case 'KeyW':
         case 'ArrowUp':
             keys.forward = true;
             break;
-        case 'KeyS':
         case 'ArrowDown':
             keys.backward = true;
             break;
-        case 'KeyA':
         case 'ArrowLeft':
             keys.left = true;
             break;
-        case 'KeyD':
         case 'ArrowRight':
             keys.right = true;
             break;
-        case 'Space':
+        case 'KeyA':
             event.preventDefault();
             if (controls.isLocked) {
                 attackEnemy();
@@ -588,19 +584,15 @@ document.addEventListener('keydown', (event) => {
 
 document.addEventListener('keyup', (event) => {
     switch (event.code) {
-        case 'KeyW':
         case 'ArrowUp':
             keys.forward = false;
             break;
-        case 'KeyS':
         case 'ArrowDown':
             keys.backward = false;
             break;
-        case 'KeyA':
         case 'ArrowLeft':
             keys.left = false;
             break;
-        case 'KeyD':
         case 'ArrowRight':
             keys.right = false;
             break;
