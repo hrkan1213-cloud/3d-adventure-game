@@ -328,7 +328,6 @@ const enemyAttackCooldown = 1000; // 1초마다 공격
 
 // 플레이어 위치 및 방향 관리
 const playerPosition = new THREE.Vector3(0, 1.6, 0);
-let playerRotation = 0; // Y축 회전 (라디안)
 let playerVelocityY = 0; // Y축 속도 (점프/낙하)
 let isOnGround = false; // 지면에 있는지 여부
 
@@ -337,10 +336,32 @@ const gravity = -15; // 중력 가속도
 const jumpSpeed = 6; // 점프 속도
 const playerEyeHeight = 1.6; // 플레이어 눈 높이
 
-// 카메라 위치 업데이트 함수
+// 플레이어 표시용 큐브 생성
+const playerCubeGeometry = new THREE.BoxGeometry(0.5, 0.8, 0.5);
+const playerCubeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x3366ff,
+    emissive: 0x1144ff,
+    emissiveIntensity: 0.3
+});
+const playerCube = new THREE.Mesh(playerCubeGeometry, playerCubeMaterial);
+playerCube.castShadow = true;
+scene.add(playerCube);
+
+// 카메라 위치 업데이트 함수 (위에서 내려다보는 시점)
 function updateCameraPosition() {
-    camera.position.copy(playerPosition);
-    camera.rotation.y = playerRotation;
+    // 카메라를 플레이어 뒤 위쪽에 배치
+    const cameraOffset = new THREE.Vector3(0, 8, 8);
+    camera.position.copy(playerPosition).add(cameraOffset);
+
+    // 카메라가 플레이어를 향하도록
+    camera.lookAt(playerPosition);
+
+    // 플레이어 큐브 위치 업데이트
+    playerCube.position.set(
+        playerPosition.x,
+        playerPosition.y - playerEyeHeight / 2,
+        playerPosition.z
+    );
 }
 
 // 미니맵 설정
@@ -585,28 +606,14 @@ function drawMinimap(playerX, playerZ) {
         minimapCtx.fillRect(treasureMapX - 6, treasureMapZ - 6, 12, 12);
     }
 
-    // 플레이어 위치 그리기 (빨간 점)
+    // 플레이어 위치 그리기 (파란 원)
     const playerMapX = centerX + (playerX * mapScale);
     const playerMapZ = centerY + (playerZ * mapScale);
 
-    minimapCtx.fillStyle = '#ff0000';
+    minimapCtx.fillStyle = '#3366ff';
     minimapCtx.beginPath();
     minimapCtx.arc(playerMapX, playerMapZ, 6, 0, Math.PI * 2);
     minimapCtx.fill();
-
-    // 플레이어 방향 표시 (작은 선)
-    const lookDirectionX = Math.sin(playerRotation);
-    const lookDirectionZ = Math.cos(playerRotation);
-
-    minimapCtx.strokeStyle = '#ff0000';
-    minimapCtx.lineWidth = 2;
-    minimapCtx.beginPath();
-    minimapCtx.moveTo(playerMapX, playerMapZ);
-    minimapCtx.lineTo(
-        playerMapX + lookDirectionX * 15,
-        playerMapZ + lookDirectionZ * 15
-    );
-    minimapCtx.stroke();
 }
 
 // 키보드 입력 상태 추적
@@ -790,27 +797,23 @@ function animate() {
         });
     }
 
-    // 플레이어 이동 및 회전 (게임 시작 시에만)
+    // 플레이어 이동 (게임 시작 시에만)
     if (gameStarted && !gameCleared) {
-        // 화살표 키에 따라 이동 방향과 회전 설정
+        // 화살표 키에 따라 절대 좌표로 이동
         let moveX = 0;
         let moveZ = 0;
 
         if (keys.forward) {
-            moveZ = -moveSpeed * delta;
-            playerRotation = Math.PI; // 위쪽(북쪽)을 바라봄
+            moveZ = -moveSpeed * delta; // 북쪽(화면 위쪽)
         }
         if (keys.backward) {
-            moveZ = moveSpeed * delta;
-            playerRotation = 0; // 아래쪽(남쪽)을 바라봄
+            moveZ = moveSpeed * delta; // 남쪽(화면 아래쪽)
         }
         if (keys.left) {
-            moveX = -moveSpeed * delta;
-            playerRotation = Math.PI / 2; // 왼쪽(서쪽)을 바라봄
+            moveX = -moveSpeed * delta; // 서쪽(화면 왼쪽)
         }
         if (keys.right) {
-            moveX = moveSpeed * delta;
-            playerRotation = -Math.PI / 2; // 오른쪽(동쪽)을 바라봄
+            moveX = moveSpeed * delta; // 동쪽(화면 오른쪽)
         }
 
         // 새 위치 계산
@@ -887,12 +890,11 @@ window.startGame = function(difficulty) {
     gameCleared = false;
     gameStarted = true;
 
-    // 플레이어 위치 및 방향 초기화
+    // 플레이어 위치 초기화
     const startX = 0;
     const startZ = 0;
     const terrainHeight = getTerrainHeight(startX, startZ);
     playerPosition.set(startX, terrainHeight + playerEyeHeight, startZ);
-    playerRotation = 0;
     playerVelocityY = 0;
     isOnGround = true;
     updateCameraPosition();
