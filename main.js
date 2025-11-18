@@ -99,6 +99,28 @@ cube.position.set(0, 0.5, -3);
 cube.castShadow = true;
 scene.add(cube);
 
+// 적(빨간 큐브) 2개 추가
+const enemies = [];
+const enemyGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+const enemyMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+
+// 적 1
+const enemy1 = new THREE.Mesh(enemyGeometry, enemyMaterial);
+enemy1.position.set(-3, 0.4, -3);
+enemy1.castShadow = true;
+scene.add(enemy1);
+enemies.push(enemy1);
+
+// 적 2
+const enemy2 = new THREE.Mesh(enemyGeometry, enemyMaterial);
+enemy2.position.set(3, 0.4, 2);
+enemy2.castShadow = true;
+scene.add(enemy2);
+enemies.push(enemy2);
+
+// 적 이동 속도
+const enemySpeed = 1.5;
+
 // PointerLockControls 설정 (1인칭 시점)
 const controls = new PointerLockControls(camera, renderer.domElement);
 
@@ -164,6 +186,14 @@ function drawMinimap(playerX, playerZ) {
     const cubeZ = centerY + (-3 * mapScale);
     minimapCtx.fillStyle = '#ff6347';
     minimapCtx.fillRect(cubeX - 5, cubeZ - 5, 10, 10);
+
+    // 적들 그리기 (주황색 사각형)
+    minimapCtx.fillStyle = '#ff8800';
+    enemies.forEach((enemy) => {
+        const enemyMapX = centerX + (enemy.position.x * mapScale);
+        const enemyMapZ = centerY + (enemy.position.z * mapScale);
+        minimapCtx.fillRect(enemyMapX - 4, enemyMapZ - 4, 8, 8);
+    });
 
     // 플레이어 위치 그리기 (빨간 점)
     const playerMapX = centerX + (playerX * mapScale);
@@ -280,6 +310,43 @@ function animate() {
     // 큐브 회전 (시각적 효과)
     cube.rotation.x += 0.01;
     cube.rotation.y += 0.01;
+
+    // 적 AI - 플레이어를 향해 이동
+    const playerPos = controls.getObject().position;
+    enemies.forEach((enemy) => {
+        // 플레이어 방향 계산
+        const direction = new THREE.Vector3();
+        direction.subVectors(playerPos, enemy.position);
+        direction.y = 0; // Y축 이동 방지 (같은 높이 유지)
+        direction.normalize();
+
+        // 적 이동
+        const moveDistance = enemySpeed * delta;
+        const newX = enemy.position.x + direction.x * moveDistance;
+        const newZ = enemy.position.z + direction.z * moveDistance;
+
+        // 벽 충돌 체크 (적도 벽을 통과하지 못하게)
+        const enemyRadius = 0.4;
+        const enemyBounds = {
+            minX: -roomSize / 2 + wallThickness / 2 + enemyRadius,
+            maxX: roomSize / 2 - wallThickness / 2 - enemyRadius,
+            minZ: -roomSize / 2 + wallThickness / 2 + enemyRadius,
+            maxZ: roomSize / 2 - wallThickness / 2 - enemyRadius
+        };
+
+        // X축 이동 및 경계 체크
+        if (newX >= enemyBounds.minX && newX <= enemyBounds.maxX) {
+            enemy.position.x = newX;
+        }
+
+        // Z축 이동 및 경계 체크
+        if (newZ >= enemyBounds.minZ && newZ <= enemyBounds.maxZ) {
+            enemy.position.z = newZ;
+        }
+
+        // 적이 플레이어를 향하도록 회전
+        enemy.rotation.y += 0.02;
+    });
 
     // 컨트롤이 잠겨있을 때만 이동 가능
     if (controls.isLocked) {
