@@ -31,46 +31,90 @@ directionalLight.position.set(5, 10, 5);
 directionalLight.castShadow = true;
 scene.add(directionalLight);
 
-// 지형 생성 (언덕이 있는 바닥)
+// 지형 생성 (마인크래프트 스타일 블록)
 const terrainTiles = [];
 const tileSize = 2;
 const tilesPerSide = 5;
-const floorMaterial = new THREE.MeshStandardMaterial({
-    color: 0x808080,
-    roughness: 0.8,
-    metalness: 0.2
-});
+const blockHeight = 0.5; // 각 블록의 높이
 
-// 높이 맵 정의 (각 타일의 높이)
+// 높이 맵 정의 (각 위치의 블록 개수)
 const heightMap = [
-    [0, 0, 0.5, 0, 0],
-    [0, 0.5, 1.0, 0.5, 0],
-    [0.5, 1.0, 1.5, 1.0, 0.5],
-    [0, 0.5, 1.0, 0.5, 0],
-    [0, 0, 0.5, 0, 0]
+    [0, 0, 1, 0, 0],
+    [0, 1, 2, 1, 0],
+    [1, 2, 3, 2, 1],
+    [0, 1, 2, 1, 0],
+    [0, 0, 1, 0, 0]
 ];
 
-// 지형 타일 생성
+// 블록 재질 생성 (면마다 다른 색상)
+function createBlockMaterials(isTopBlock) {
+    // 6개 면: right, left, top, bottom, front, back
+    const grassTop = new THREE.MeshStandardMaterial({
+        color: 0x4caf50, // 초록색 풀
+        roughness: 0.8
+    });
+    const dirt = new THREE.MeshStandardMaterial({
+        color: 0x8b4513, // 갈색 흙
+        roughness: 0.9
+    });
+
+    if (isTopBlock) {
+        // 가장 위 블록: 윗면 초록색, 측면 갈색
+        return [
+            dirt,      // right
+            dirt,      // left
+            grassTop,  // top (초록색)
+            dirt,      // bottom
+            dirt,      // front
+            dirt       // back
+        ];
+    } else {
+        // 중간 블록: 모든 면 갈색
+        return [
+            dirt,      // right
+            dirt,      // left
+            dirt,      // top
+            dirt,      // bottom
+            dirt,      // front
+            dirt       // back
+        ];
+    }
+}
+
+// 지형 블록 생성
 for (let x = 0; x < tilesPerSide; x++) {
     for (let z = 0; z < tilesPerSide; z++) {
-        const height = heightMap[z][x];
-        const tileGeometry = new THREE.BoxGeometry(tileSize, 0.2, tileSize);
-        const tile = new THREE.Mesh(tileGeometry, floorMaterial.clone());
+        const numBlocks = heightMap[z][x];
 
         // 타일 위치 계산 (중심을 원점으로)
         const offsetX = (x - tilesPerSide / 2 + 0.5) * tileSize;
         const offsetZ = (z - tilesPerSide / 2 + 0.5) * tileSize;
 
-        tile.position.set(offsetX, height, offsetZ);
-        tile.receiveShadow = true;
-        tile.userData.height = height; // 높이 정보 저장
-        tile.userData.minX = offsetX - tileSize / 2;
-        tile.userData.maxX = offsetX + tileSize / 2;
-        tile.userData.minZ = offsetZ - tileSize / 2;
-        tile.userData.maxZ = offsetZ + tileSize / 2;
+        // 해당 위치에 블록 쌓기
+        for (let h = 0; h < numBlocks; h++) {
+            const blockY = h * blockHeight;
+            const isTopBlock = (h === numBlocks - 1);
 
-        scene.add(tile);
-        terrainTiles.push(tile);
+            const blockGeometry = new THREE.BoxGeometry(tileSize, blockHeight, tileSize);
+            const blockMaterials = createBlockMaterials(isTopBlock);
+            const block = new THREE.Mesh(blockGeometry, blockMaterials);
+
+            block.position.set(offsetX, blockY + blockHeight / 2, offsetZ);
+            block.receiveShadow = true;
+            block.castShadow = true;
+
+            // 최상단 블록에만 높이 정보 저장
+            if (isTopBlock) {
+                block.userData.height = blockY + blockHeight;
+                block.userData.minX = offsetX - tileSize / 2;
+                block.userData.maxX = offsetX + tileSize / 2;
+                block.userData.minZ = offsetZ - tileSize / 2;
+                block.userData.maxZ = offsetZ + tileSize / 2;
+                terrainTiles.push(block);
+            }
+
+            scene.add(block);
+        }
     }
 }
 
@@ -79,7 +123,7 @@ function getTerrainHeight(x, z) {
     for (const tile of terrainTiles) {
         if (x >= tile.userData.minX && x <= tile.userData.maxX &&
             z >= tile.userData.minZ && z <= tile.userData.maxZ) {
-            return tile.userData.height + 0.1; // 타일 위 약간 위
+            return tile.userData.height; // 블록 위
         }
     }
     return 0; // 기본 높이
