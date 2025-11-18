@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 
 // Scene, Camera, Renderer 초기화
 const scene = new THREE.Scene();
@@ -241,23 +240,15 @@ const maxPlayerHealth = 5;
 const enemyAttackDistance = 1.5; // 적이 공격할 수 있는 거리
 const enemyAttackCooldown = 1000; // 1초마다 공격
 
-// PointerLockControls 설정 (1인칭 시점)
-const controls = new PointerLockControls(camera, renderer.domElement);
+// 플레이어 위치 및 방향 관리
+const playerPosition = new THREE.Vector3(0, 1.6, 0);
+let playerRotation = 0; // Y축 회전 (라디안)
 
-// 클릭하면 포인터 락 활성화
-renderer.domElement.addEventListener('click', () => {
-    controls.lock();
-});
-
-controls.addEventListener('lock', () => {
-    console.log('Controls locked');
-});
-
-controls.addEventListener('unlock', () => {
-    console.log('Controls unlocked');
-});
-
-scene.add(controls.getObject());
+// 카메라 위치 업데이트 함수
+function updateCameraPosition() {
+    camera.position.copy(playerPosition);
+    camera.rotation.y = playerRotation;
+}
 
 // 미니맵 설정
 const minimapCanvas = document.getElementById('minimap-canvas');
@@ -315,11 +306,9 @@ function updateWeaponUI() {
 
 // 아이템 습득 함수
 function pickupItem() {
-    const playerPos = controls.getObject().position;
-
     // 열쇠 습득 체크
     if (keyMesh && !hasKey) {
-        const distance = playerPos.distanceTo(keyMesh.position);
+        const distance = playerPosition.distanceTo(keyMesh.position);
         if (distance <= itemPickupDistance) {
             hasKey = true;
             scene.remove(keyMesh);
@@ -332,18 +321,17 @@ function pickupItem() {
 
     // 보물상자 상호작용 체크 (열쇠가 필요)
     if (treasureMesh && hasKey && !gameCleared) {
-        const distance = playerPos.distanceTo(treasureMesh.position);
+        const distance = playerPosition.distanceTo(treasureMesh.position);
         if (distance <= itemPickupDistance) {
             gameCleared = true;
             showGameOver('게임 클리어!', true);
-            controls.unlock();
             return;
         }
     }
 
     // 무기 습득 체크
     if (weaponMesh && !equippedWeapon) {
-        const distance = playerPos.distanceTo(weaponMesh.position);
+        const distance = playerPosition.distanceTo(weaponMesh.position);
         if (distance <= itemPickupDistance) {
             equippedWeapon = weaponMesh.weaponName;
             attackPower = 1.5; // 공격력 1.5배
@@ -358,7 +346,7 @@ function pickupItem() {
     // 가까운 아이템 찾기
     for (let i = items.length - 1; i >= 0; i--) {
         const item = items[i];
-        const distance = playerPos.distanceTo(item.position);
+        const distance = playerPosition.distanceTo(item.position);
 
         if (distance <= itemPickupDistance) {
             // 아이템 습득
@@ -376,12 +364,15 @@ function pickupItem() {
 
 // 플레이어 공격 함수
 function attackEnemy() {
-    const playerPos = controls.getObject().position;
-    const playerDirection = new THREE.Vector3(0, 0, -1);
-    playerDirection.applyQuaternion(controls.getObject().quaternion);
+    // 플레이어가 바라보는 방향 계산
+    const playerDirection = new THREE.Vector3(
+        Math.sin(playerRotation),
+        0,
+        Math.cos(playerRotation)
+    );
 
     // 레이캐스터로 앞쪽의 적 감지
-    const raycaster = new THREE.Raycaster(playerPos, playerDirection);
+    const raycaster = new THREE.Raycaster(playerPosition, playerDirection);
     const intersects = raycaster.intersectObjects(enemies);
 
     if (intersects.length > 0) {
@@ -514,17 +505,16 @@ function drawMinimap(playerX, playerZ) {
     minimapCtx.fill();
 
     // 플레이어 방향 표시 (작은 선)
-    const controlsObject = controls.getObject();
-    const lookDirection = new THREE.Vector3(0, 0, -1);
-    lookDirection.applyQuaternion(controlsObject.quaternion);
+    const lookDirectionX = Math.sin(playerRotation);
+    const lookDirectionZ = Math.cos(playerRotation);
 
     minimapCtx.strokeStyle = '#ff0000';
     minimapCtx.lineWidth = 2;
     minimapCtx.beginPath();
     minimapCtx.moveTo(playerMapX, playerMapZ);
     minimapCtx.lineTo(
-        playerMapX + lookDirection.x * 15,
-        playerMapZ + lookDirection.z * 15
+        playerMapX + lookDirectionX * 15,
+        playerMapZ + lookDirectionZ * 15
     );
     minimapCtx.stroke();
 }
@@ -555,6 +545,8 @@ const roomBounds = {
 
 // 키보드 이벤트 리스너
 document.addEventListener('keydown', (event) => {
+    if (!gameStarted || gameCleared) return;
+
     switch (event.code) {
         case 'ArrowUp':
             keys.forward = true;
@@ -570,14 +562,10 @@ document.addEventListener('keydown', (event) => {
             break;
         case 'KeyA':
             event.preventDefault();
-            if (controls.isLocked) {
-                attackEnemy();
-            }
+            attackEnemy();
             break;
         case 'KeyE':
-            if (controls.isLocked) {
-                pickupItem();
-            }
+            pickupItem();
             break;
     }
 });
@@ -651,11 +639,10 @@ function animate() {
 
     // 적 AI - 플레이어를 향해 이동 및 공격 (게임이 시작되고 클리어되지 않았을 때만)
     if (gameStarted && !gameCleared) {
-        const playerPos = controls.getObject().position;
         enemies.forEach((enemy) => {
             // 플레이어 방향 계산
             const direction = new THREE.Vector3();
-            direction.subVectors(playerPos, enemy.position);
+            direction.subVectors(playerPosition, enemy.position);
             direction.y = 0; // Y축 이동 방지 (같은 높이 유지)
 
             // 플레이어와의 거리 계산
@@ -672,7 +659,6 @@ function animate() {
                     // 플레이어 체력이 0이 되면 게임 오버
                     if (playerHealth <= 0) {
                         showGameOver('게임 오버!', false);
-                        controls.unlock();
                     }
                 }
             } else {
@@ -706,53 +692,50 @@ function animate() {
         });
     }
 
-    // 컨트롤이 잠겨있을 때만 이동 가능
-    if (controls.isLocked) {
-        // 이동 방향 계산
-        direction.z = Number(keys.forward) - Number(keys.backward);
-        direction.x = Number(keys.right) - Number(keys.left);
-        direction.normalize(); // 대각선 이동 시 속도가 빨라지는 것 방지
+    // 플레이어 이동 및 회전 (게임 시작 시에만)
+    if (gameStarted && !gameCleared) {
+        // 화살표 키에 따라 이동 방향과 회전 설정
+        let moveX = 0;
+        let moveZ = 0;
 
-        // 속도 계산
-        velocity.z = direction.z * moveSpeed * delta;
-        velocity.x = direction.x * moveSpeed * delta;
-
-        // 카메라의 현재 위치 저장
-        const controlsObject = controls.getObject();
-        const newPosition = controlsObject.position.clone();
-
-        // 이동 적용 (카메라가 보는 방향 기준)
-        if (keys.forward || keys.backward) {
-            controls.moveForward(-velocity.z);
+        if (keys.forward) {
+            moveZ = -moveSpeed * delta;
+            playerRotation = Math.PI; // 위쪽(북쪽)을 바라봄
         }
-        if (keys.left || keys.right) {
-            controls.moveRight(velocity.x);
+        if (keys.backward) {
+            moveZ = moveSpeed * delta;
+            playerRotation = 0; // 아래쪽(남쪽)을 바라봄
         }
-
-        // 충돌 검사 및 경계 제한
-        const pos = controlsObject.position;
-
-        // X축 경계 체크
-        if (pos.x < roomBounds.minX) {
-            pos.x = roomBounds.minX;
-        } else if (pos.x > roomBounds.maxX) {
-            pos.x = roomBounds.maxX;
+        if (keys.left) {
+            moveX = -moveSpeed * delta;
+            playerRotation = Math.PI / 2; // 왼쪽(서쪽)을 바라봄
+        }
+        if (keys.right) {
+            moveX = moveSpeed * delta;
+            playerRotation = -Math.PI / 2; // 오른쪽(동쪽)을 바라봄
         }
 
-        // Z축 경계 체크
-        if (pos.z < roomBounds.minZ) {
-            pos.z = roomBounds.minZ;
-        } else if (pos.z > roomBounds.maxZ) {
-            pos.z = roomBounds.maxZ;
+        // 새 위치 계산
+        const newX = playerPosition.x + moveX;
+        const newZ = playerPosition.z + moveZ;
+
+        // 경계 체크하며 이동
+        if (newX >= roomBounds.minX && newX <= roomBounds.maxX) {
+            playerPosition.x = newX;
         }
+        if (newZ >= roomBounds.minZ && newZ <= roomBounds.maxZ) {
+            playerPosition.z = newZ;
+        }
+
+        // 카메라 위치 업데이트
+        updateCameraPosition();
     }
 
     prevTime = time;
     renderer.render(scene, camera);
 
     // 미니맵 업데이트
-    const controlsObject = controls.getObject();
-    drawMinimap(controlsObject.position.x, controlsObject.position.z);
+    drawMinimap(playerPosition.x, playerPosition.z);
 }
 
 // 게임오버/승리 모달 표시 함수
@@ -787,8 +770,10 @@ window.startGame = function(difficulty) {
     gameCleared = false;
     gameStarted = true;
 
-    // 플레이어 위치 초기화
-    controls.getObject().position.set(0, 1.6, 0);
+    // 플레이어 위치 및 방향 초기화
+    playerPosition.set(0, 1.6, 0);
+    playerRotation = 0;
+    updateCameraPosition();
 
     // 게임 오브젝트 생성
     createGameObjects();
@@ -798,9 +783,6 @@ window.startGame = function(difficulty) {
     updateHealthUI();
     updateInventoryUI();
     updateWeaponUI();
-
-    // 포인터 락 활성화 (이동 및 마우스 조작 가능)
-    controls.lock();
 };
 
 // 게임 재시작 함수
@@ -820,5 +802,8 @@ window.restartGame = function() {
 updateHealthUI();
 updateInventoryUI();
 updateWeaponUI();
+
+// 초기 카메라 위치 설정
+updateCameraPosition();
 
 animate();
