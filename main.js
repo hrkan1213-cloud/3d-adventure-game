@@ -86,9 +86,9 @@ for (let x = 0; x < tilesPerSide; x++) {
     for (let z = 0; z < tilesPerSide; z++) {
         const numBlocks = heightMap[z][x];
 
-        // 타일 위치 계산 (중심을 원점으로)
-        const offsetX = (x - tilesPerSide / 2 + 0.5) * tileSize;
-        const offsetZ = (z - tilesPerSide / 2 + 0.5) * tileSize;
+        // 타일 위치 계산 (벽 쪽 코너로 이동)
+        const offsetX = (x - tilesPerSide + 0.5) * tileSize - 2; // 왼쪽 벽 쪽으로
+        const offsetZ = (z - tilesPerSide + 0.5) * tileSize - 2; // 뒤쪽 벽으로
 
         // 해당 위치에 블록 쌓기
         for (let h = 0; h < numBlocks; h++) {
@@ -562,6 +562,7 @@ const mapScale = minimapSize / (roomSize * 1.2);
 
 // 체력바 업데이트 함수
 function updateHealthUI() {
+    // 플레이어 체력 업데이트
     const healthBoxes = document.querySelectorAll('#player-health .health-box');
     healthBoxes.forEach((box, index) => {
         if (index < playerHealth) {
@@ -571,8 +572,45 @@ function updateHealthUI() {
         }
     });
 
+    // 적 수 업데이트
     const enemyCount = enemies.length;
     document.getElementById('enemy-count').textContent = enemyCount;
+
+    // 적 체력바 업데이트
+    const healthBar = document.getElementById('health-bar');
+
+    // 기존 적 체력바 제거
+    const existingEnemyHealths = healthBar.querySelectorAll('.enemy-health-section');
+    existingEnemyHealths.forEach(section => section.remove());
+
+    // 각 적의 체력바 생성
+    enemies.forEach((enemy, index) => {
+        const enemyHealthSection = document.createElement('div');
+        enemyHealthSection.className = 'enemy-health-section';
+        enemyHealthSection.style.marginTop = '10px';
+
+        const label = document.createElement('div');
+        label.className = 'health-label';
+        label.textContent = `적 ${index + 1} 체력`;
+        enemyHealthSection.appendChild(label);
+
+        const healthContainer = document.createElement('div');
+        healthContainer.className = 'health-container';
+
+        // 적의 최대 체력만큼 체력바 생성
+        const maxHealth = difficultySettings[currentDifficulty]?.enemyHealth || 3;
+        for (let i = 0; i < maxHealth; i++) {
+            const box = document.createElement('div');
+            box.className = 'health-box enemy';
+            if (i >= enemy.health) {
+                box.classList.add('empty');
+            }
+            healthContainer.appendChild(box);
+        }
+
+        enemyHealthSection.appendChild(healthContainer);
+        healthBar.appendChild(enemyHealthSection);
+    });
 }
 
 // 인벤토리 UI 업데이트 함수
@@ -710,16 +748,24 @@ function attackEnemy() {
     );
     playerDirection.normalize();
 
-    // 레이캐스터로 앞쪽의 적 감지
+    // 레이캐스터로 앞쪽의 적 감지 (recursive true로 Group 자식까지 검사)
     const raycaster = new THREE.Raycaster(playerPosition, playerDirection);
-    const intersects = raycaster.intersectObjects(enemies);
+    const intersects = raycaster.intersectObjects(enemies, true);
 
     if (intersects.length > 0) {
-        const hitEnemy = intersects[0].object;
         const distance = intersects[0].distance;
 
         // 공격 거리 체크 (3 유닛 이내)
         if (distance <= 3) {
+            // 히트된 객체의 부모 Group(실제 적)을 찾기
+            let hitEnemy = intersects[0].object;
+            while (hitEnemy.parent && !enemies.includes(hitEnemy)) {
+                hitEnemy = hitEnemy.parent;
+            }
+
+            // 적이 아닌 경우 종료
+            if (!enemies.includes(hitEnemy)) return;
+
             // 공격력 적용 (무기 장착 시 1.5배)
             hitEnemy.health -= attackPower;
             console.log(`적 공격! 남은 체력: ${hitEnemy.health}`);
@@ -740,15 +786,22 @@ function attackEnemy() {
                         showGameOver('승리!', true);
                     }, 100);
                 }
+            } else {
+                // 체력바 업데이트
+                updateHealthUI();
             }
 
-            // 시각적 피드백 (잠시 색 변경)
-            hitEnemy.material.color.setHex(0xffaa00);
-            setTimeout(() => {
-                if (hitEnemy.health > 0) {
-                    hitEnemy.material.color.setHex(0xff0000);
-                }
-            }, 100);
+            // 시각적 피드백 (적 몸통 색 변경)
+            const body = hitEnemy.children.find(child => child.geometry && child.geometry.type === 'BoxGeometry' && child.position.y === 0.1);
+            if (body) {
+                const originalColor = body.material.color.getHex();
+                body.material.color.setHex(0xffaa00);
+                setTimeout(() => {
+                    if (hitEnemy.health > 0) {
+                        body.material.color.setHex(originalColor);
+                    }
+                }, 100);
+            }
         }
     }
 }
