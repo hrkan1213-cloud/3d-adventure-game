@@ -667,13 +667,17 @@ function pickupItem() {
             console.log('검 생성:', playerWeaponMesh);
             console.log('검 자식 객체 수:', playerWeaponMesh.children.length);
 
-            playerWeaponMesh.position.set(0.4, -0.4, -0.6); // 카메라 기준 오른쪽 아래 앞
-            playerWeaponMesh.rotation.set(Math.PI / 6, 0, Math.PI / 4); // 각도 조정
-            playerWeaponMesh.scale.set(1.0, 1.0, 1.0); // 원래 크기로
+            // 카메라 기준: X=오른쪽, Y=위, Z=뒤(음수가 앞)
+            playerWeaponMesh.position.set(0.5, -0.5, -0.8); // 오른쪽 아래 앞쪽에 배치
+            playerWeaponMesh.rotation.set(Math.PI / 4, Math.PI / 8, Math.PI / 6); // 자연스러운 각도
+            playerWeaponMesh.scale.set(1.5, 1.5, 1.5); // 1.5배 크기로 더 잘 보이게
             camera.add(playerWeaponMesh);
 
             console.log('검이 카메라에 추가됨. 카메라 자식 수:', camera.children.length);
+            console.log('검 로컬 위치:', playerWeaponMesh.position);
             console.log('검 월드 위치:', playerWeaponMesh.getWorldPosition(new THREE.Vector3()));
+            console.log('카메라 위치:', camera.position);
+            console.log('카메라 회전:', camera.rotation);
 
             updateWeaponUI();
             console.log(`${weaponMesh.weaponName} 습득! 공격력이 증가했습니다!`);
@@ -713,27 +717,32 @@ function attackEnemy() {
     if (playerWeaponMesh) {
         console.log('검 휘두르기 애니메이션 시작');
         isAttacking = true;
-        const originalRotationX = playerWeaponMesh.rotation.x;
-        const swingDuration = 200; // 200ms
-        const swingAngle = Math.PI / 2; // 90도 회전
+        const originalRotationZ = playerWeaponMesh.rotation.z;
+        const swingDuration = 250; // 250ms
+        const swingAngle = Math.PI * 0.6; // 약 108도 회전
         const startTime = Date.now();
 
         const swingAnimation = () => {
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / swingDuration, 1);
 
-            if (progress < 0.5) {
-                // 전반부: 검을 뒤로 당김
-                playerWeaponMesh.rotation.x = originalRotationX - swingAngle * (progress * 2);
+            if (progress < 0.4) {
+                // 전반부: 검을 위로 들어올림 (준비 동작)
+                playerWeaponMesh.rotation.z = originalRotationZ - swingAngle * 0.3 * (progress / 0.4);
+            } else if (progress < 0.7) {
+                // 중반부: 검을 빠르게 휘두름
+                const swingProgress = (progress - 0.4) / 0.3;
+                playerWeaponMesh.rotation.z = originalRotationZ - swingAngle * 0.3 + swingAngle * swingProgress;
             } else {
-                // 후반부: 검을 앞으로 휘두름
-                playerWeaponMesh.rotation.x = originalRotationX - swingAngle + swingAngle * ((progress - 0.5) * 2);
+                // 후반부: 원위치로 복귀
+                const returnProgress = (progress - 0.7) / 0.3;
+                playerWeaponMesh.rotation.z = originalRotationZ + swingAngle * 0.7 - swingAngle * 0.7 * returnProgress;
             }
 
             if (progress < 1) {
                 requestAnimationFrame(swingAnimation);
             } else {
-                playerWeaponMesh.rotation.x = originalRotationX;
+                playerWeaponMesh.rotation.z = originalRotationZ;
                 isAttacking = false;
                 console.log('검 휘두르기 애니메이션 종료');
             }
@@ -745,13 +754,14 @@ function attackEnemy() {
     }
 
     // 플레이어가 바라보는 방향 계산
+    // Three.js에서 rotation.y = 0일 때 -Z 방향을 바라보므로 부호 반전 필요
     const playerDirection = new THREE.Vector3(
-        Math.sin(playerRotation),
+        -Math.sin(playerRotation),
         0,
-        Math.cos(playerRotation)
+        -Math.cos(playerRotation)
     );
     playerDirection.normalize();
-    console.log('공격 방향:', playerDirection);
+    console.log('공격 방향:', playerDirection, 'playerRotation:', playerRotation);
 
     // 레이캐스터로 앞쪽의 적 감지 (recursive true로 Group 자식까지 검사)
     const raycaster = new THREE.Raycaster(playerPosition, playerDirection);
@@ -917,8 +927,9 @@ function drawMinimap(playerX, playerZ) {
     minimapCtx.fill();
 
     // 플레이어 공격 범위 표시 (부채꼴)
-    const lookDirectionX = Math.sin(playerRotation);
-    const lookDirectionZ = Math.cos(playerRotation);
+    // Three.js 좌표계에서 미니맵 좌표계로 변환
+    const lookDirectionX = -Math.sin(playerRotation);
+    const lookDirectionZ = -Math.cos(playerRotation);
     const attackRange = 3 * mapScale; // 공격 거리 3 유닛
     const attackAngle = Math.PI / 6; // 30도 (좌우 15도씩)
 
@@ -928,8 +939,10 @@ function drawMinimap(playerX, playerZ) {
     minimapCtx.moveTo(playerMapX, playerMapZ);
 
     // 부채꼴의 시작 각도 계산 (playerRotation을 기준으로)
-    const startAngle = playerRotation - Math.PI / 2 - attackAngle / 2;
-    const endAngle = playerRotation - Math.PI / 2 + attackAngle / 2;
+    // Canvas에서는 각도 0이 오른쪽(+X)이므로 조정 필요
+    const canvasAngle = Math.atan2(lookDirectionZ, lookDirectionX);
+    const startAngle = canvasAngle - attackAngle / 2;
+    const endAngle = canvasAngle + attackAngle / 2;
 
     minimapCtx.arc(playerMapX, playerMapZ, attackRange, startAngle, endAngle);
     minimapCtx.closePath();
