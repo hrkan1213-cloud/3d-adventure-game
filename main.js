@@ -33,90 +33,74 @@ scene.add(directionalLight);
 
 // 지형 생성 (마인크래프트 스타일 블록)
 const terrainTiles = [];
-const tileSize = 2;
-const tilesPerSide = 5;
 const blockHeight = 0.5; // 각 블록의 높이
+const blockSize = 2; // 각 블록의 크기
 
-// 높이 맵 정의 (각 위치의 블록 개수)
-const heightMap = [
-    [0, 0, 1, 0, 0],
-    [0, 1, 2, 1, 0],
-    [1, 2, 3, 2, 1],
-    [0, 1, 2, 1, 0],
-    [0, 0, 1, 0, 0]
+// 언덕 색상 정의
+const hillColors = [
+    { top: 0x4caf50, side: 0x8b4513 },   // 초록-갈색
+    { top: 0x9e9e9e, side: 0x616161 },   // 회색 돌
+    { top: 0xffeb3b, side: 0xfbc02d },   // 노랑색 모래
+    { top: 0x795548, side: 0x5d4037 },   // 갈색 나무
 ];
 
-// 블록 재질 생성 (면마다 다른 색상)
-function createBlockMaterials(isTopBlock) {
-    // 6개 면: right, left, top, bottom, front, back
-    const grassTop = new THREE.MeshStandardMaterial({
-        color: 0x4caf50, // 초록색 풀
+// 블록 재질 생성 함수
+function createBlockMaterials(isTopBlock, colorIndex) {
+    const colors = hillColors[colorIndex % hillColors.length];
+
+    const topMaterial = new THREE.MeshStandardMaterial({
+        color: colors.top,
         roughness: 0.8
     });
-    const dirt = new THREE.MeshStandardMaterial({
-        color: 0x8b4513, // 갈색 흙
+    const sideMaterial = new THREE.MeshStandardMaterial({
+        color: colors.side,
         roughness: 0.9
     });
 
     if (isTopBlock) {
-        // 가장 위 블록: 윗면 초록색, 측면 갈색
-        return [
-            dirt,      // right
-            dirt,      // left
-            grassTop,  // top (초록색)
-            dirt,      // bottom
-            dirt,      // front
-            dirt       // back
-        ];
+        return [sideMaterial, sideMaterial, topMaterial, sideMaterial, sideMaterial, sideMaterial];
     } else {
-        // 중간 블록: 모든 면 갈색
-        return [
-            dirt,      // right
-            dirt,      // left
-            dirt,      // top
-            dirt,      // bottom
-            dirt,      // front
-            dirt       // back
-        ];
+        return [sideMaterial, sideMaterial, sideMaterial, sideMaterial, sideMaterial, sideMaterial];
     }
 }
 
-// 지형 블록 생성
-for (let x = 0; x < tilesPerSide; x++) {
-    for (let z = 0; z < tilesPerSide; z++) {
-        const numBlocks = heightMap[z][x];
+// 언덕 정의 (위치와 높이)
+const hills = [
+    { x: -12, z: -12, height: 3, colorIndex: 0 },  // 왼쪽 위 - 초록
+    { x: 12, z: -12, height: 2, colorIndex: 1 },   // 오른쪽 위 - 회색
+    { x: -12, z: 12, height: 2, colorIndex: 2 },   // 왼쪽 아래 - 노랑
+    { x: 12, z: 12, height: 3, colorIndex: 3 },    // 오른쪽 아래 - 갈색
+    { x: 0, z: -12, height: 2, colorIndex: 0 },    // 위 중앙 - 초록
+];
 
-        // 타일 위치 계산 (벽 쪽 코너로 이동)
-        const offsetX = (x - tilesPerSide + 0.5) * tileSize - 2; // 왼쪽 벽 쪽으로
-        const offsetZ = (z - tilesPerSide + 0.5) * tileSize - 2; // 뒤쪽 벽으로
+// 언덕 블록 생성
+hills.forEach(hill => {
+    for (let h = 0; h < hill.height; h++) {
+        const blockY = h * blockHeight;
+        const isTopBlock = (h === hill.height - 1);
 
-        // 해당 위치에 블록 쌓기
-        for (let h = 0; h < numBlocks; h++) {
-            const blockY = h * blockHeight;
-            const isTopBlock = (h === numBlocks - 1);
+        const blockGeometry = new THREE.BoxGeometry(blockSize, blockHeight, blockSize);
+        const blockMaterials = createBlockMaterials(isTopBlock, hill.colorIndex);
+        const block = new THREE.Mesh(blockGeometry, blockMaterials);
 
-            const blockGeometry = new THREE.BoxGeometry(tileSize, blockHeight, tileSize);
-            const blockMaterials = createBlockMaterials(isTopBlock);
-            const block = new THREE.Mesh(blockGeometry, blockMaterials);
+        block.position.set(hill.x, blockY + blockHeight / 2, hill.z);
+        block.receiveShadow = true;
+        block.castShadow = true;
 
-            block.position.set(offsetX, blockY + blockHeight / 2, offsetZ);
-            block.receiveShadow = true;
-            block.castShadow = true;
-
-            // 최상단 블록에만 높이 정보 저장
-            if (isTopBlock) {
-                block.userData.height = blockY + blockHeight;
-                block.userData.minX = offsetX - tileSize / 2;
-                block.userData.maxX = offsetX + tileSize / 2;
-                block.userData.minZ = offsetZ - tileSize / 2;
-                block.userData.maxZ = offsetZ + tileSize / 2;
-                terrainTiles.push(block);
-            }
-
-            scene.add(block);
+        // 충돌 감지를 위한 데이터 저장
+        if (isTopBlock) {
+            block.userData.isHill = true;
+            block.userData.height = blockY + blockHeight;
+            block.userData.minX = hill.x - blockSize / 2;
+            block.userData.maxX = hill.x + blockSize / 2;
+            block.userData.minZ = hill.z - blockSize / 2;
+            block.userData.maxZ = hill.z + blockSize / 2;
+            terrainTiles.push(block);
         }
+
+        scene.add(block);
     }
-}
+});
 
 // 지형 높이 가져오기 함수
 function getTerrainHeight(x, z) {
@@ -1162,13 +1146,27 @@ function animate() {
                     maxZ: roomSize / 2 - wallThickness / 2 - enemyRadius
                 };
 
+                // 블록 충돌 체크 함수
+                const checkBlockCollision = (x, z) => {
+                    for (const tile of terrainTiles) {
+                        if (tile.userData.isHill &&
+                            x >= tile.userData.minX && x <= tile.userData.maxX &&
+                            z >= tile.userData.minZ && z <= tile.userData.maxZ) {
+                            return true; // 충돌!
+                        }
+                    }
+                    return false;
+                };
+
                 // X축 이동 및 경계 체크
-                if (newX >= enemyBounds.minX && newX <= enemyBounds.maxX) {
+                if (newX >= enemyBounds.minX && newX <= enemyBounds.maxX &&
+                    !checkBlockCollision(newX, enemy.position.z)) {
                     enemy.position.x = newX;
                 }
 
                 // Z축 이동 및 경계 체크
-                if (newZ >= enemyBounds.minZ && newZ <= enemyBounds.maxZ) {
+                if (newZ >= enemyBounds.minZ && newZ <= enemyBounds.maxZ &&
+                    !checkBlockCollision(enemy.position.x, newZ)) {
                     enemy.position.z = newZ;
                 }
 
@@ -1192,17 +1190,6 @@ function animate() {
 
     // 플레이어 이동 및 회전 (게임 시작 시에만)
     if (gameStarted && !gameCleared) {
-        // 가장 최근에 누른 키의 방향으로 회전 (우선순위: forward > backward > left > right)
-        if (keys.forward) {
-            playerRotation = 0; // 위쪽(북쪽)을 바라봄
-        } else if (keys.backward) {
-            playerRotation = Math.PI; // 아래쪽(남쪽)을 바라봄
-        } else if (keys.left) {
-            playerRotation = -Math.PI / 2; // 왼쪽(서쪽)을 바라봄
-        } else if (keys.right) {
-            playerRotation = Math.PI / 2; // 오른쪽(동쪽)을 바라봄
-        }
-
         // 이동 처리
         let moveX = 0;
         let moveZ = 0;
@@ -1218,6 +1205,27 @@ function animate() {
         }
         if (keys.right) {
             moveX = moveSpeed * delta; // 오른쪽으로 이동
+        }
+
+        // 이동 방향이 있을 때만 회전 (자연스러운 카메라 회전)
+        if (moveX !== 0 || moveZ !== 0) {
+            // 이동 방향에 따른 목표 회전 각도 계산
+            const targetRotation = Math.atan2(moveX, moveZ);
+
+            // 부드러운 회전 (보간)
+            const rotationSpeed = 10; // 회전 속도 (높을수록 빠름)
+            let rotationDiff = targetRotation - playerRotation;
+
+            // 각도 차이를 -PI ~ PI 범위로 정규화 (최단 경로로 회전)
+            while (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
+            while (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
+
+            // 부드럽게 회전
+            playerRotation += rotationDiff * rotationSpeed * delta;
+
+            // 각도를 -PI ~ PI 범위로 유지
+            while (playerRotation > Math.PI) playerRotation -= 2 * Math.PI;
+            while (playerRotation < -Math.PI) playerRotation += 2 * Math.PI;
         }
 
         // 새 위치 계산
