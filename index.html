@@ -96,6 +96,34 @@
         .health-box.enemy.empty {
             background-color: #333;
         }
+
+        #inventory {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 10;
+            font-size: 14px;
+            min-width: 200px;
+        }
+
+        #inventory-items {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+            flex-wrap: wrap;
+        }
+
+        .inventory-item {
+            background: rgba(255, 215, 0, 0.3);
+            border: 2px solid #ffd700;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -108,6 +136,7 @@
             WASD 또는 방향키: 이동<br>
             마우스: 둘러보기<br>
             스페이스: 공격<br>
+            E: 아이템 습득<br>
             ESC: 마우스 해제
         </div>
         <div id="health-bar">
@@ -120,6 +149,10 @@
                 <div class="health-box player"></div>
             </div>
             <div class="health-label">적 남은 수: <span id="enemy-count">2</span></div>
+        </div>
+        <div id="inventory">
+            <div style="font-weight: bold;">아이템창:</div>
+            <div id="inventory-items"></div>
         </div>
     </div>
     <script type="module" src="/main.js"></script>

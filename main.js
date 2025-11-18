@@ -125,6 +125,35 @@ enemies.push(enemy2);
 // 적 이동 속도
 const enemySpeed = 1.5;
 
+// 아이템 생성 (노란 구)
+const items = [];
+const itemGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+const itemMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffd700,
+    emissive: 0xffff00,
+    emissiveIntensity: 0.3
+});
+
+// 아이템 1
+const item1 = new THREE.Mesh(itemGeometry, itemMaterial);
+item1.position.set(-2, 0.3, 2);
+item1.castShadow = true;
+item1.itemName = '황금 구슬';
+scene.add(item1);
+items.push(item1);
+
+// 아이템 2
+const item2 = new THREE.Mesh(itemGeometry, itemMaterial);
+item2.position.set(2, 0.3, -2);
+item2.castShadow = true;
+item2.itemName = '마법의 구슬';
+scene.add(item2);
+items.push(item2);
+
+// 인벤토리 시스템
+const inventory = [];
+const itemPickupDistance = 2.0; // 아이템 습득 거리
+
 // 체력 시스템
 let playerHealth = 5;
 const maxPlayerHealth = 5;
@@ -174,6 +203,46 @@ function updateHealthUI() {
 
     const enemyCount = enemies.length;
     document.getElementById('enemy-count').textContent = enemyCount;
+}
+
+// 인벤토리 UI 업데이트 함수
+function updateInventoryUI() {
+    const inventoryItems = document.getElementById('inventory-items');
+    inventoryItems.innerHTML = '';
+
+    if (inventory.length === 0) {
+        inventoryItems.innerHTML = '<span style="color: #888;">비어있음</span>';
+    } else {
+        inventory.forEach((itemName) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'inventory-item';
+            itemDiv.textContent = itemName;
+            inventoryItems.appendChild(itemDiv);
+        });
+    }
+}
+
+// 아이템 습득 함수
+function pickupItem() {
+    const playerPos = controls.getObject().position;
+
+    // 가까운 아이템 찾기
+    for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i];
+        const distance = playerPos.distanceTo(item.position);
+
+        if (distance <= itemPickupDistance) {
+            // 아이템 습득
+            inventory.push(item.itemName);
+            scene.remove(item);
+            items.splice(i, 1);
+            updateInventoryUI();
+
+            // 시각적 피드백 (콘솔)
+            console.log(`${item.itemName} 습득!`);
+            break; // 한 번에 하나씩만 습득
+        }
+    }
 }
 
 // 플레이어 공격 함수
@@ -266,6 +335,16 @@ function drawMinimap(playerX, playerZ) {
         minimapCtx.fillRect(enemyMapX - 4, enemyMapZ - 4, 8, 8);
     });
 
+    // 아이템 그리기 (노란색 원)
+    minimapCtx.fillStyle = '#ffd700';
+    items.forEach((item) => {
+        const itemMapX = centerX + (item.position.x * mapScale);
+        const itemMapZ = centerY + (item.position.z * mapScale);
+        minimapCtx.beginPath();
+        minimapCtx.arc(itemMapX, itemMapZ, 4, 0, Math.PI * 2);
+        minimapCtx.fill();
+    });
+
     // 플레이어 위치 그리기 (빨간 점)
     const playerMapX = centerX + (playerX * mapScale);
     const playerMapZ = centerY + (playerZ * mapScale);
@@ -340,6 +419,11 @@ document.addEventListener('keydown', (event) => {
                 attackEnemy();
             }
             break;
+        case 'KeyE':
+            if (controls.isLocked) {
+                pickupItem();
+            }
+            break;
     }
 });
 
@@ -387,6 +471,12 @@ function animate() {
     // 큐브 회전 (시각적 효과)
     cube.rotation.x += 0.01;
     cube.rotation.y += 0.01;
+
+    // 아이템 떠다니는 효과
+    items.forEach((item) => {
+        item.position.y = 0.3 + Math.sin(time * 0.002) * 0.1;
+        item.rotation.y += 0.02;
+    });
 
     // 적 AI - 플레이어를 향해 이동 및 공격
     const playerPos = controls.getObject().position;
@@ -494,5 +584,6 @@ function animate() {
 
 // 게임 시작 시 UI 초기화
 updateHealthUI();
+updateInventoryUI();
 
 animate();
