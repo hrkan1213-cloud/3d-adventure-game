@@ -248,6 +248,8 @@ const weaponMaterial = new THREE.MeshStandardMaterial({
 });
 let equippedWeapon = null;
 let attackPower = 1;
+let playerWeaponMesh = null; // 플레이어가 들고 있는 검
+let isAttacking = false; // 공격 애니메이션 중인지 여부
 
 // 열쇠 관련 변수
 let keyMesh = null;
@@ -430,6 +432,13 @@ function pickupItem() {
             equippedWeapon = weaponMesh.weaponName;
             attackPower = 1.5; // 공격력 1.5배
             scene.remove(weaponMesh);
+
+            // 플레이어 손에 검 추가
+            playerWeaponMesh = new THREE.Mesh(weaponGeometry, weaponMaterial.clone());
+            playerWeaponMesh.position.set(0.3, -0.3, -0.5); // 카메라 기준 오른쪽 아래 앞
+            playerWeaponMesh.rotation.z = Math.PI / 4; // 45도 기울임
+            camera.add(playerWeaponMesh);
+
             updateWeaponUI();
             console.log(`${weaponMesh.weaponName} 습득! 공격력이 증가했습니다!`);
             return;
@@ -457,6 +466,39 @@ function pickupItem() {
 
 // 플레이어 공격 함수
 function attackEnemy() {
+    if (isAttacking) return; // 이미 공격 중이면 무시
+
+    // 검 휘두르기 애니메이션
+    if (playerWeaponMesh) {
+        isAttacking = true;
+        const originalRotationX = playerWeaponMesh.rotation.x;
+        const swingDuration = 200; // 200ms
+        const swingAngle = Math.PI / 2; // 90도 회전
+        const startTime = Date.now();
+
+        const swingAnimation = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / swingDuration, 1);
+
+            if (progress < 0.5) {
+                // 전반부: 검을 뒤로 당김
+                playerWeaponMesh.rotation.x = originalRotationX - swingAngle * (progress * 2);
+            } else {
+                // 후반부: 검을 앞으로 휘두름
+                playerWeaponMesh.rotation.x = originalRotationX - swingAngle + swingAngle * ((progress - 0.5) * 2);
+            }
+
+            if (progress < 1) {
+                requestAnimationFrame(swingAnimation);
+            } else {
+                playerWeaponMesh.rotation.x = originalRotationX;
+                isAttacking = false;
+            }
+        };
+
+        swingAnimation();
+    }
+
     // 플레이어가 바라보는 방향 계산
     const playerDirection = new THREE.Vector3(
         Math.sin(playerRotation),
@@ -893,6 +935,13 @@ window.startGame = function(difficulty) {
     gameCleared = false;
     gameStarted = true;
 
+    // 플레이어가 들고 있던 검 제거
+    if (playerWeaponMesh) {
+        camera.remove(playerWeaponMesh);
+        playerWeaponMesh = null;
+    }
+    isAttacking = false;
+
     // 플레이어 위치 및 방향 초기화
     const startX = 0;
     const startZ = 0;
@@ -920,6 +969,13 @@ window.restartGame = function() {
 
     // 난이도 선택 모달 표시
     document.getElementById('difficulty-modal').classList.remove('hidden');
+
+    // 플레이어가 들고 있던 검 제거
+    if (playerWeaponMesh) {
+        camera.remove(playerWeaponMesh);
+        playerWeaponMesh = null;
+    }
+    isAttacking = false;
 
     // 게임 상태 초기화
     gameStarted = false;
