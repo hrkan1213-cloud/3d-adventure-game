@@ -1163,17 +1163,14 @@ function animate() {
 
     // 플레이어 이동 및 회전 (게임 시작 시에만)
     if (gameStarted && !gameCleared) {
-        // 방향키를 처음 눌렀을 때만 회전 (이동 중 공격 가능하도록)
-        if (keys.forward && !prevKeys.forward) {
+        // 가장 최근에 누른 키의 방향으로 회전 (우선순위: forward > backward > left > right)
+        if (keys.forward) {
             playerRotation = Math.PI; // 위쪽(북쪽)을 바라봄
-        }
-        if (keys.backward && !prevKeys.backward) {
+        } else if (keys.backward) {
             playerRotation = 0; // 아래쪽(남쪽)을 바라봄
-        }
-        if (keys.left && !prevKeys.left) {
+        } else if (keys.left) {
             playerRotation = Math.PI / 2; // 왼쪽(서쪽)을 바라봄
-        }
-        if (keys.right && !prevKeys.right) {
+        } else if (keys.right) {
             playerRotation = -Math.PI / 2; // 오른쪽(동쪽)을 바라봄
         }
 
@@ -1227,12 +1224,6 @@ function animate() {
 
         // 카메라 위치 업데이트
         updateCameraPosition();
-
-        // 이전 키 상태 업데이트 (다음 프레임을 위해)
-        prevKeys.forward = keys.forward;
-        prevKeys.backward = keys.backward;
-        prevKeys.left = keys.left;
-        prevKeys.right = keys.right;
     }
 
     prevTime = time;
