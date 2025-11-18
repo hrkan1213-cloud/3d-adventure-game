@@ -5,18 +5,23 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb); // 하늘색 배경
 
+// 게임 컨테이너 가져오기
+const gameContainer = document.getElementById('game-container');
+const gameWidth = window.innerWidth;
+const gameHeight = window.innerHeight * 0.7; // 하단 70%
+
 const camera = new THREE.PerspectiveCamera(
     75,
-    window.innerWidth / window.innerHeight,
+    gameWidth / gameHeight,
     0.1,
     1000
 );
 camera.position.set(0, 1.6, 0); // 사람 눈높이
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(gameWidth, gameHeight);
 renderer.shadowMap.enabled = true;
-document.body.appendChild(renderer.domElement);
+gameContainer.appendChild(renderer.domElement);
 
 // 조명 추가
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -181,9 +186,12 @@ document.addEventListener('keyup', (event) => {
 
 // 윈도우 리사이즈 처리
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const newWidth = window.innerWidth;
+    const newHeight = window.innerHeight * 0.7;
+
+    camera.aspect = newWidth / newHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(newWidth, newHeight);
 });
 
 // 시간 추적 (프레임 독립적인 이동)

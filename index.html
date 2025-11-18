@@ -9,10 +9,33 @@
             margin: 0;
             overflow: hidden;
             font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
         }
+
+        #minimap {
+            width: 100%;
+            height: 30vh;
+            background-color: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            border-bottom: 2px solid #333;
+        }
+
+        #game-container {
+            width: 100%;
+            height: 70vh;
+            position: relative;
+        }
+
         canvas {
             display: block;
         }
+
         #info {
             position: absolute;
             top: 10px;
@@ -22,15 +45,19 @@
             padding: 10px;
             border-radius: 5px;
             font-size: 14px;
+            z-index: 10;
         }
     </style>
 </head>
 <body>
-    <div id="info">
-        클릭하여 시작<br>
-        WASD 또는 방향키: 이동<br>
-        마우스: 둘러보기<br>
-        ESC: 마우스 해제
+    <div id="minimap">지도</div>
+    <div id="game-container">
+        <div id="info">
+            클릭하여 시작<br>
+            WASD 또는 방향키: 이동<br>
+            마우스: 둘러보기<br>
+            ESC: 마우스 해제
+        </div>
     </div>
     <script type="module" src="/main.js"></script>
 </body>
