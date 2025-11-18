@@ -154,6 +154,25 @@ items.push(item2);
 const inventory = [];
 const itemPickupDistance = 2.0; // 아이템 습득 거리
 
+// 무기 생성 (파란 원기둥)
+let weapon = null;
+const weaponGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.8, 16);
+const weaponMaterial = new THREE.MeshStandardMaterial({
+    color: 0x0066ff,
+    emissive: 0x0033ff,
+    emissiveIntensity: 0.2
+});
+const weaponMesh = new THREE.Mesh(weaponGeometry, weaponMaterial);
+weaponMesh.position.set(0, 0.4, 3);
+weaponMesh.rotation.z = Math.PI / 2; // 옆으로 눕히기
+weaponMesh.castShadow = true;
+weaponMesh.weaponName = '검';
+scene.add(weaponMesh);
+
+// 무기 시스템
+let equippedWeapon = null;
+let attackPower = 1; // 기본 공격력
+
 // 체력 시스템
 let playerHealth = 5;
 const maxPlayerHealth = 5;
@@ -222,9 +241,33 @@ function updateInventoryUI() {
     }
 }
 
+// 무기 UI 업데이트 함수
+function updateWeaponUI() {
+    const weaponDisplay = document.getElementById('weapon-display');
+    if (equippedWeapon) {
+        weaponDisplay.innerHTML = `<span class="weapon-equipped">${equippedWeapon}</span>`;
+    } else {
+        weaponDisplay.textContent = '없음';
+    }
+}
+
 // 아이템 습득 함수
 function pickupItem() {
     const playerPos = controls.getObject().position;
+
+    // 무기 습득 체크
+    if (weaponMesh && !equippedWeapon) {
+        const distance = playerPos.distanceTo(weaponMesh.position);
+        if (distance <= itemPickupDistance) {
+            equippedWeapon = weaponMesh.weaponName;
+            attackPower = 1.5; // 공격력 1.5배
+            scene.remove(weaponMesh);
+            weapon = weaponMesh;
+            updateWeaponUI();
+            console.log(`${weaponMesh.weaponName} 습득! 공격력이 증가했습니다!`);
+            return;
+        }
+    }
 
     // 가까운 아이템 찾기
     for (let i = items.length - 1; i >= 0; i--) {
@@ -261,7 +304,8 @@ function attackEnemy() {
 
         // 공격 거리 체크 (3 유닛 이내)
         if (distance <= 3) {
-            hitEnemy.health -= 1;
+            // 공격력 적용 (무기 장착 시 1.5배)
+            hitEnemy.health -= attackPower;
 
             // 적이 죽었으면 제거
             if (hitEnemy.health <= 0) {
@@ -344,6 +388,14 @@ function drawMinimap(playerX, playerZ) {
         minimapCtx.arc(itemMapX, itemMapZ, 4, 0, Math.PI * 2);
         minimapCtx.fill();
     });
+
+    // 무기 그리기 (파란색 사각형)
+    if (weaponMesh && !equippedWeapon) {
+        const weaponMapX = centerX + (weaponMesh.position.x * mapScale);
+        const weaponMapZ = centerY + (weaponMesh.position.z * mapScale);
+        minimapCtx.fillStyle = '#0066ff';
+        minimapCtx.fillRect(weaponMapX - 4, weaponMapZ - 4, 8, 8);
+    }
 
     // 플레이어 위치 그리기 (빨간 점)
     const playerMapX = centerX + (playerX * mapScale);
@@ -478,6 +530,12 @@ function animate() {
         item.rotation.y += 0.02;
     });
 
+    // 무기 떠다니는 효과
+    if (weaponMesh && !equippedWeapon) {
+        weaponMesh.position.y = 0.4 + Math.sin(time * 0.003) * 0.1;
+        weaponMesh.rotation.y += 0.01;
+    }
+
     // 적 AI - 플레이어를 향해 이동 및 공격
     const playerPos = controls.getObject().position;
     enemies.forEach((enemy) => {
@@ -585,5 +643,6 @@ function animate() {
 // 게임 시작 시 UI 초기화
 updateHealthUI();
 updateInventoryUI();
+updateWeaponUI();
 
 animate();

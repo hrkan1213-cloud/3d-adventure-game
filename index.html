@@ -124,6 +124,21 @@
             border-radius: 3px;
             font-size: 12px;
         }
+
+        #weapon-slot {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #555;
+        }
+
+        .weapon-equipped {
+            background: rgba(0, 100, 255, 0.3);
+            border: 2px solid #00aaff;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -153,6 +168,10 @@
         <div id="inventory">
             <div style="font-weight: bold;">아이템창:</div>
             <div id="inventory-items"></div>
+            <div id="weapon-slot">
+                <div style="font-weight: bold; margin-bottom: 5px;">무기:</div>
+                <div id="weapon-display">없음</div>
+            </div>
         </div>
     </div>
     <script type="module" src="/main.js"></script>
