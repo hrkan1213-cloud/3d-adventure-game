@@ -31,17 +31,59 @@ directionalLight.position.set(5, 10, 5);
 directionalLight.castShadow = true;
 scene.add(directionalLight);
 
-// 바닥 생성 (회색 평면)
-const floorGeometry = new THREE.PlaneGeometry(10, 10);
+// 지형 생성 (언덕이 있는 바닥)
+const terrainTiles = [];
+const tileSize = 2;
+const tilesPerSide = 5;
 const floorMaterial = new THREE.MeshStandardMaterial({
     color: 0x808080,
     roughness: 0.8,
     metalness: 0.2
 });
-const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-floor.rotation.x = -Math.PI / 2; // 바닥이 수평이 되도록 회전
-floor.receiveShadow = true;
-scene.add(floor);
+
+// 높이 맵 정의 (각 타일의 높이)
+const heightMap = [
+    [0, 0, 0.5, 0, 0],
+    [0, 0.5, 1.0, 0.5, 0],
+    [0.5, 1.0, 1.5, 1.0, 0.5],
+    [0, 0.5, 1.0, 0.5, 0],
+    [0, 0, 0.5, 0, 0]
+];
+
+// 지형 타일 생성
+for (let x = 0; x < tilesPerSide; x++) {
+    for (let z = 0; z < tilesPerSide; z++) {
+        const height = heightMap[z][x];
+        const tileGeometry = new THREE.BoxGeometry(tileSize, 0.2, tileSize);
+        const tile = new THREE.Mesh(tileGeometry, floorMaterial.clone());
+
+        // 타일 위치 계산 (중심을 원점으로)
+        const offsetX = (x - tilesPerSide / 2 + 0.5) * tileSize;
+        const offsetZ = (z - tilesPerSide / 2 + 0.5) * tileSize;
+
+        tile.position.set(offsetX, height, offsetZ);
+        tile.receiveShadow = true;
+        tile.userData.height = height; // 높이 정보 저장
+        tile.userData.minX = offsetX - tileSize / 2;
+        tile.userData.maxX = offsetX + tileSize / 2;
+        tile.userData.minZ = offsetZ - tileSize / 2;
+        tile.userData.maxZ = offsetZ + tileSize / 2;
+
+        scene.add(tile);
+        terrainTiles.push(tile);
+    }
+}
+
+// 지형 높이 가져오기 함수
+function getTerrainHeight(x, z) {
+    for (const tile of terrainTiles) {
+        if (x >= tile.userData.minX && x <= tile.userData.maxX &&
+            z >= tile.userData.minZ && z <= tile.userData.maxZ) {
+            return tile.userData.height + 0.1; // 타일 위 약간 위
+        }
+    }
+    return 0; // 기본 높이
+}
 
 // 벽 4개 생성 (큐브로 경계)
 const wallMaterial = new THREE.MeshStandardMaterial({
@@ -243,6 +285,13 @@ const enemyAttackCooldown = 1000; // 1초마다 공격
 // 플레이어 위치 및 방향 관리
 const playerPosition = new THREE.Vector3(0, 1.6, 0);
 let playerRotation = 0; // Y축 회전 (라디안)
+let playerVelocityY = 0; // Y축 속도 (점프/낙하)
+let isOnGround = false; // 지면에 있는지 여부
+
+// 점프 관련 상수
+const gravity = -15; // 중력 가속도
+const jumpSpeed = 6; // 점프 속도
+const playerEyeHeight = 1.6; // 플레이어 눈 높이
 
 // 카메라 위치 업데이트 함수
 function updateCameraPosition() {
@@ -557,6 +606,14 @@ document.addEventListener('keydown', (event) => {
         case 'ArrowRight':
             keys.right = true;
             break;
+        case 'Space':
+            event.preventDefault();
+            // 지면에 있을 때만 점프 가능
+            if (isOnGround) {
+                playerVelocityY = jumpSpeed;
+                isOnGround = false;
+            }
+            break;
         case 'KeyA':
             event.preventDefault();
             attackEnemy();
@@ -724,6 +781,25 @@ function animate() {
             playerPosition.z = newZ;
         }
 
+        // 중력 적용
+        playerVelocityY += gravity * delta;
+
+        // Y축 이동
+        playerPosition.y += playerVelocityY * delta;
+
+        // 현재 위치의 지형 높이 가져오기
+        const terrainHeight = getTerrainHeight(playerPosition.x, playerPosition.z);
+        const groundLevel = terrainHeight + playerEyeHeight;
+
+        // 지면 충돌 체크
+        if (playerPosition.y <= groundLevel) {
+            playerPosition.y = groundLevel;
+            playerVelocityY = 0;
+            isOnGround = true;
+        } else {
+            isOnGround = false;
+        }
+
         // 카메라 위치 업데이트
         updateCameraPosition();
     }
@@ -768,8 +844,13 @@ window.startGame = function(difficulty) {
     gameStarted = true;
 
     // 플레이어 위치 및 방향 초기화
-    playerPosition.set(0, 1.6, 0);
+    const startX = 0;
+    const startZ = 0;
+    const terrainHeight = getTerrainHeight(startX, startZ);
+    playerPosition.set(startX, terrainHeight + playerEyeHeight, startZ);
     playerRotation = 0;
+    playerVelocityY = 0;
+    isOnGround = true;
     updateCameraPosition();
 
     // 게임 오브젝트 생성
