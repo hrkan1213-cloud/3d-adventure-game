@@ -328,6 +328,7 @@ const enemyAttackCooldown = 1000; // 1초마다 공격
 
 // 플레이어 위치 및 방향 관리
 const playerPosition = new THREE.Vector3(0, 1.6, 0);
+let playerRotation = 0; // Y축 회전 (라디안)
 let playerVelocityY = 0; // Y축 속도 (점프/낙하)
 let isOnGround = false; // 지면에 있는지 여부
 
@@ -336,32 +337,11 @@ const gravity = -15; // 중력 가속도
 const jumpSpeed = 6; // 점프 속도
 const playerEyeHeight = 1.6; // 플레이어 눈 높이
 
-// 플레이어 표시용 큐브 생성
-const playerCubeGeometry = new THREE.BoxGeometry(0.5, 0.8, 0.5);
-const playerCubeMaterial = new THREE.MeshStandardMaterial({
-    color: 0x3366ff,
-    emissive: 0x1144ff,
-    emissiveIntensity: 0.3
-});
-const playerCube = new THREE.Mesh(playerCubeGeometry, playerCubeMaterial);
-playerCube.castShadow = true;
-scene.add(playerCube);
-
-// 카메라 위치 업데이트 함수 (위에서 내려다보는 시점)
+// 카메라 위치 업데이트 함수 (1인칭 시점)
 function updateCameraPosition() {
-    // 카메라를 플레이어 뒤 위쪽에 배치
-    const cameraOffset = new THREE.Vector3(0, 8, 8);
-    camera.position.copy(playerPosition).add(cameraOffset);
-
-    // 카메라가 플레이어를 향하도록
-    camera.lookAt(playerPosition);
-
-    // 플레이어 큐브 위치 업데이트
-    playerCube.position.set(
-        playerPosition.x,
-        playerPosition.y - playerEyeHeight / 2,
-        playerPosition.z
-    );
+    // 카메라를 플레이어 위치에 배치
+    camera.position.copy(playerPosition);
+    camera.rotation.y = playerRotation;
 }
 
 // 미니맵 설정
@@ -477,9 +457,12 @@ function pickupItem() {
 
 // 플레이어 공격 함수
 function attackEnemy() {
-    // 카메라가 바라보는 방향 가져오기
-    const playerDirection = new THREE.Vector3();
-    camera.getWorldDirection(playerDirection);
+    // 플레이어가 바라보는 방향 계산
+    const playerDirection = new THREE.Vector3(
+        Math.sin(playerRotation),
+        0,
+        Math.cos(playerRotation)
+    );
     playerDirection.normalize();
 
     // 레이캐스터로 앞쪽의 적 감지
@@ -494,6 +477,7 @@ function attackEnemy() {
         if (distance <= 3) {
             // 공격력 적용 (무기 장착 시 1.5배)
             hitEnemy.health -= attackPower;
+            console.log(`적 공격! 남은 체력: ${hitEnemy.health}`);
 
             // 적이 죽었으면 제거
             if (hitEnemy.health <= 0) {
@@ -503,6 +487,7 @@ function attackEnemy() {
                     enemies.splice(index, 1);
                 }
                 updateHealthUI();
+                console.log('적 처치!');
 
                 // 모든 적을 처치하면 승리
                 if (enemies.length === 0) {
@@ -606,14 +591,28 @@ function drawMinimap(playerX, playerZ) {
         minimapCtx.fillRect(treasureMapX - 6, treasureMapZ - 6, 12, 12);
     }
 
-    // 플레이어 위치 그리기 (파란 원)
+    // 플레이어 위치 그리기 (빨간 점)
     const playerMapX = centerX + (playerX * mapScale);
     const playerMapZ = centerY + (playerZ * mapScale);
 
-    minimapCtx.fillStyle = '#3366ff';
+    minimapCtx.fillStyle = '#ff0000';
     minimapCtx.beginPath();
     minimapCtx.arc(playerMapX, playerMapZ, 6, 0, Math.PI * 2);
     minimapCtx.fill();
+
+    // 플레이어 방향 표시 (작은 선)
+    const lookDirectionX = Math.sin(playerRotation);
+    const lookDirectionZ = Math.cos(playerRotation);
+
+    minimapCtx.strokeStyle = '#ff0000';
+    minimapCtx.lineWidth = 2;
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(playerMapX, playerMapZ);
+    minimapCtx.lineTo(
+        playerMapX + lookDirectionX * 15,
+        playerMapZ + lookDirectionZ * 15
+    );
+    minimapCtx.stroke();
 }
 
 // 키보드 입력 상태 추적
@@ -797,23 +796,27 @@ function animate() {
         });
     }
 
-    // 플레이어 이동 (게임 시작 시에만)
+    // 플레이어 이동 및 회전 (게임 시작 시에만)
     if (gameStarted && !gameCleared) {
-        // 화살표 키에 따라 절대 좌표로 이동
+        // 화살표 키에 따라 이동 방향과 회전 설정
         let moveX = 0;
         let moveZ = 0;
 
         if (keys.forward) {
-            moveZ = -moveSpeed * delta; // 북쪽(화면 위쪽)
+            moveZ = -moveSpeed * delta;
+            playerRotation = Math.PI; // 위쪽(북쪽)을 바라봄
         }
         if (keys.backward) {
-            moveZ = moveSpeed * delta; // 남쪽(화면 아래쪽)
+            moveZ = moveSpeed * delta;
+            playerRotation = 0; // 아래쪽(남쪽)을 바라봄
         }
         if (keys.left) {
-            moveX = -moveSpeed * delta; // 서쪽(화면 왼쪽)
+            moveX = -moveSpeed * delta;
+            playerRotation = Math.PI / 2; // 왼쪽(서쪽)을 바라봄
         }
         if (keys.right) {
-            moveX = moveSpeed * delta; // 동쪽(화면 오른쪽)
+            moveX = moveSpeed * delta;
+            playerRotation = -Math.PI / 2; // 오른쪽(동쪽)을 바라봄
         }
 
         // 새 위치 계산
@@ -890,11 +893,12 @@ window.startGame = function(difficulty) {
     gameCleared = false;
     gameStarted = true;
 
-    // 플레이어 위치 초기화
+    // 플레이어 위치 및 방향 초기화
     const startX = 0;
     const startZ = 0;
     const terrainHeight = getTerrainHeight(startX, startZ);
     playerPosition.set(startX, terrainHeight + playerEyeHeight, startZ);
+    playerRotation = 0;
     playerVelocityY = 0;
     isOnGround = true;
     updateCameraPosition();
