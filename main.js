@@ -96,7 +96,7 @@ hills.forEach(hill => {
 
                 block.position.set(posX, blockY + blockHeight / 2, posZ);
                 block.receiveShadow = true;
-                block.castShadow = true;
+                block.castShadow = false;
 
                 // 모든 블록에 충돌 감지 데이터 저장
                 block.userData.isHill = true;
@@ -197,6 +197,9 @@ const enemySpeed = 0.8; // 적 이동 속도 감소
 
 // 플레이어 캐릭터
 let playerCharacter = null;
+
+// 미니맵 최적화 프레임 카운터
+let minimapFrameCount = 0;
 
 // 마인크래프트 스타일 적 캐릭터 생성 함수
 function createEnemyCharacter() {
@@ -1757,8 +1760,10 @@ function animate() {
     prevTime = time;
     renderer.render(scene, camera);
 
-    // 미니맵 업데이트
-    drawMinimap(playerPosition.x, playerPosition.z);
+    // 미니맵 업데이트 (2프레임마다 한 번씩)
+    if (minimapFrameCount++ % 2 === 0) {
+        drawMinimap(playerPosition.x, playerPosition.z);
+    }
 }
 
 // 게임오버/승리 모달 표시 함수
