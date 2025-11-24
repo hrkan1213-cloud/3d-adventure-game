@@ -1053,17 +1053,14 @@ function pickupItem() {
             console.log('검 생성:', playerWeaponMesh);
             console.log('검 자식 객체 수:', playerWeaponMesh.children.length);
 
-            // 카메라 기준: X=오른쪽, Y=위, Z=뒤(음수가 앞)
-            playerWeaponMesh.position.set(0.5, -0.5, -0.8); // 오른쪽 아래 앞쪽에 배치
-            playerWeaponMesh.rotation.set(Math.PI / 4, Math.PI / 8, Math.PI / 6); // 자연스러운 각도
-            playerWeaponMesh.scale.set(1.5, 1.5, 1.5); // 1.5배 크기로 더 잘 보이게
-            camera.add(playerWeaponMesh);
+            // 플레이어 오른팔에 검 장착
+            playerWeaponMesh.position.set(0, -0.3, 0); // 손 위치 조정
+            playerWeaponMesh.rotation.set(0, 0, -Math.PI / 2); // 손에 쥔 각도
+            playerCharacter.userData.rightArm.add(playerWeaponMesh);
 
-            console.log('검이 카메라에 추가됨. 카메라 자식 수:', camera.children.length);
+            console.log('검이 플레이어 오른팔에 추가됨');
             console.log('검 로컬 위치:', playerWeaponMesh.position);
             console.log('검 월드 위치:', playerWeaponMesh.getWorldPosition(new THREE.Vector3()));
-            console.log('카메라 위치:', camera.position);
-            console.log('카메라 회전:', camera.rotation);
 
             updateWeaponUI();
             console.log(`${weaponMesh.weaponName} 습득! 공격력이 증가했습니다!`);
@@ -1798,7 +1795,9 @@ window.startGame = function(difficulty) {
 
     // 플레이어가 들고 있던 검 제거
     if (playerWeaponMesh) {
-        camera.remove(playerWeaponMesh);
+        if (playerCharacter && playerCharacter.userData.rightArm) {
+            playerCharacter.userData.rightArm.remove(playerWeaponMesh);
+        }
         playerWeaponMesh = null;
     }
     isAttacking = false;
@@ -1840,7 +1839,9 @@ window.restartGame = function() {
 
     // 플레이어가 들고 있던 검 제거
     if (playerWeaponMesh) {
-        camera.remove(playerWeaponMesh);
+        if (playerCharacter && playerCharacter.userData.rightArm) {
+            playerCharacter.userData.rightArm.remove(playerWeaponMesh);
+        }
         playerWeaponMesh = null;
     }
     isAttacking = false;
