@@ -10,7 +10,7 @@ const gameWidth = window.innerWidth;
 const gameHeight = window.innerHeight; // 전체 화면
 
 const camera = new THREE.PerspectiveCamera(
-    90,  // 시야각을 90도로 넓게 변경
+    65,  // 3인칭 시점에 적합한 시야각 (FOV)
     gameWidth / gameHeight,
     0.1,
     1000
@@ -96,7 +96,7 @@ hills.forEach(hill => {
 
                 block.position.set(posX, blockY + blockHeight / 2, posZ);
                 block.receiveShadow = true;
-                block.castShadow = true;
+                block.castShadow = false;
 
                 // 모든 블록에 충돌 감지 데이터 저장
                 block.userData.isHill = true;
@@ -197,6 +197,9 @@ const enemySpeed = 0.8; // 적 이동 속도 감소
 
 // 플레이어 캐릭터
 let playerCharacter = null;
+
+// 미니맵 최적화 프레임 카운터
+let minimapFrameCount = 0;
 
 // 마인크래프트 스타일 적 캐릭터 생성 함수
 function createEnemyCharacter() {
@@ -337,6 +340,7 @@ function createPlayerCharacter() {
     player.userData.rightArm = rightArm;
     player.userData.leftLeg = leftLeg;
     player.userData.rightLeg = rightLeg;
+    player.userData.walkCycle = 0;
 
     return player;
 }
@@ -392,8 +396,8 @@ function createGoldenCoin() {
         new THREE.CylinderGeometry(0.25, 0.25, 0.05, 16),
         new THREE.MeshStandardMaterial({
             color: 0xffd700,
-            emissive: 0xffaa00,
-            emissiveIntensity: 0.3,
+            emissive: 0xffd700,
+            emissiveIntensity: 0.5,
             metalness: 0.8,
             roughness: 0.2
         })
@@ -423,7 +427,7 @@ function createCrystal() {
 
     const crystalMaterial = new THREE.MeshStandardMaterial({
         color: 0x00ffff,
-        emissive: 0x0088ff,
+        emissive: 0x00ffff,
         emissiveIntensity: 0.5,
         metalness: 0.3,
         roughness: 0.2,
@@ -480,9 +484,9 @@ function createMagicWand() {
     const gem = new THREE.Mesh(
         new THREE.OctahedronGeometry(0.12, 0),
         new THREE.MeshStandardMaterial({
-            color: 0x9400d3,
-            emissive: 0x6a0dad,
-            emissiveIntensity: 0.6,
+            color: 0x9b59b6,
+            emissive: 0x9b59b6,
+            emissiveIntensity: 0.5,
             metalness: 0.3,
             roughness: 0.2
         })
@@ -1518,27 +1522,39 @@ function animate() {
 
     // 아이템 떠다니는 효과
     items.forEach((item) => {
-        item.position.y = 0.3 + Math.sin(time * 0.002) * 0.1;
+        item.position.y = 0.8 + Math.sin(time * 0.002) * 0.1;
         item.rotation.y += 0.02;
+        // 맥박 애니메이션
+        const pulse = 1 + Math.sin(time * 0.002) * 0.1;
+        item.scale.set(pulse, pulse, pulse);
     });
 
     // 무기 떠다니는 효과
     if (weaponMesh && !equippedWeapon) {
-        weaponMesh.position.y = 0.4 + Math.sin(time * 0.003) * 0.1;
+        weaponMesh.position.y = 0.9 + Math.sin(time * 0.003) * 0.1;
         weaponMesh.rotation.y += 0.01;
+        // 맥박 애니메이션
+        const weaponPulse = 1 + Math.sin(time * 0.002) * 0.1;
+        weaponMesh.scale.set(weaponPulse, weaponPulse, weaponPulse);
     }
 
     // 열쇠 떠다니는 효과
     if (keyMesh && !hasKey) {
-        keyMesh.position.y = 0.25 + Math.sin(time * 0.0025) * 0.15;
+        keyMesh.position.y = 0.8 + Math.sin(time * 0.0025) * 0.15;
         keyMesh.rotation.y += 0.015;
+        // 맥박 애니메이션
+        const keyPulse = 1 + Math.sin(time * 0.002) * 0.1;
+        keyMesh.scale.set(keyPulse, keyPulse, keyPulse);
     }
 
     // 보물상자 빛나는 효과
     if (treasureMesh && !gameCleared) {
         treasureMesh.rotation.y += 0.005;
         // 보물상자 위아래 떠다니는 효과
-        treasureMesh.position.y = 0.6 + Math.sin(time * 0.002) * 0.05;
+        treasureMesh.position.y = 1.0 + Math.sin(time * 0.002) * 0.05;
+        // 맥박 애니메이션
+        const treasurePulse = 1 + Math.sin(time * 0.002) * 0.08;
+        treasureMesh.scale.set(treasurePulse, treasurePulse, treasurePulse);
     }
 
     // 태양 회전 효과
@@ -1578,6 +1594,13 @@ function animate() {
                     playerHealth -= 1;
                     enemy.lastAttackTime = time;
                     updateHealthUI();
+
+                    // 피격 효과 추가
+                    const overlay = document.getElementById('hit-overlay');
+                    overlay.classList.add('hit');
+                    setTimeout(() => {
+                        overlay.classList.remove('hit');
+                    }, 500);
 
                     // 플레이어 체력이 0이 되면 게임 오버
                     if (playerHealth <= 0) {
@@ -1718,16 +1741,29 @@ function animate() {
         // 플레이어 캐릭터 위치 및 회전 동기화
         if (playerCharacter) {
             playerCharacter.position.copy(playerPosition);
-            playerCharacter.position.y -= playerEyeHeight; // 눈 높이만큼 내림 (발을 지면에)
+            playerCharacter.position.y -= (playerEyeHeight - 0.7); // 발이 지면에 오도록 조정
             playerCharacter.rotation.y = playerRotation;
+
+            // 이동 중일 때만 걷기 애니메이션
+            if (moveX !== 0 || moveZ !== 0) {
+                playerCharacter.userData.walkCycle += delta * 5;
+                const swing = Math.sin(playerCharacter.userData.walkCycle) * 0.3;
+
+                playerCharacter.userData.leftArm.rotation.x = swing;
+                playerCharacter.userData.rightArm.rotation.x = -swing;
+                playerCharacter.userData.leftLeg.rotation.x = -swing;
+                playerCharacter.userData.rightLeg.rotation.x = swing;
+            }
         }
     }
 
     prevTime = time;
     renderer.render(scene, camera);
 
-    // 미니맵 업데이트
-    drawMinimap(playerPosition.x, playerPosition.z);
+    // 미니맵 업데이트 (2프레임마다 한 번씩)
+    if (minimapFrameCount++ % 2 === 0) {
+        drawMinimap(playerPosition.x, playerPosition.z);
+    }
 }
 
 // 게임오버/승리 모달 표시 함수
