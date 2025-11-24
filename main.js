@@ -518,9 +518,9 @@ function createMagicWand() {
 
 // 특수 효과 관련 변수
 let goldenParticles = null;
-let sunMesh = null;
-let moonMesh = null;
-let stars = null;
+let flowers = [];
+let meteorShower = null;
+let meteors = [];
 let clouds = [];
 let hasUsedCoin = false;
 let hasUsedCrystal = false;
@@ -552,73 +552,156 @@ function createGoldenParticles() {
     return new THREE.Points(geometry, material);
 }
 
-// 태양 생성 함수
-function createSun() {
-    const sun = new THREE.Group();
+// 꽃 생성 함수
+function createFlower(color1, color2) {
+    const flower = new THREE.Group();
 
-    // 태양 본체
-    const sunBody = new THREE.Mesh(
-        new THREE.SphereGeometry(3, 32, 32),
-        new THREE.MeshBasicMaterial({
-            color: 0xffff00,
-            emissive: 0xffaa00,
-            emissiveIntensity: 1
-        })
-    );
-    sun.add(sunBody);
+    // 꽃잎 (5개)
+    const petalMaterial = new THREE.MeshStandardMaterial({
+        color: color1,
+        emissive: color1,
+        emissiveIntensity: 0.3
+    });
 
-    // 태양 광채 (더 큰 반투명 구)
-    const sunGlow = new THREE.Mesh(
-        new THREE.SphereGeometry(3.5, 32, 32),
-        new THREE.MeshBasicMaterial({
-            color: 0xffdd00,
-            transparent: true,
-            opacity: 0.3
-        })
-    );
-    sun.add(sunGlow);
+    for (let i = 0; i < 5; i++) {
+        const angle = (i / 5) * Math.PI * 2;
+        const petal = new THREE.Mesh(
+            new THREE.SphereGeometry(0.08, 8, 8),
+            petalMaterial
+        );
+        petal.position.set(
+            Math.cos(angle) * 0.12,
+            0,
+            Math.sin(angle) * 0.12
+        );
+        petal.scale.set(1, 0.5, 1.5);
+        flower.add(petal);
+    }
 
-    sun.position.set(15, 20, -15);
-
-    return sun;
-}
-
-// 달 생성 함수
-function createMoon() {
-    const moon = new THREE.Mesh(
-        new THREE.SphereGeometry(2.5, 32, 32),
-        new THREE.MeshBasicMaterial({
-            color: 0xf0f0f0,
-            emissive: 0xcccccc,
+    // 꽃 중심
+    const center = new THREE.Mesh(
+        new THREE.SphereGeometry(0.06, 8, 8),
+        new THREE.MeshStandardMaterial({
+            color: color2,
+            emissive: color2,
             emissiveIntensity: 0.5
         })
     );
-    moon.position.set(-15, 25, -15);
-    return moon;
+    flower.add(center);
+
+    // 줄기
+    const stem = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.02, 0.02, 0.3, 8),
+        new THREE.MeshStandardMaterial({ color: 0x228b22 })
+    );
+    stem.position.y = -0.15;
+    flower.add(stem);
+
+    return flower;
 }
 
-// 별들 생성 함수
-function createStars() {
-    const starCount = 500;
-    const positions = new Float32Array(starCount * 3);
+// 언덕에 꽃밭 생성 함수
+function createFlowerGarden() {
+    const flowerColors = [
+        { petal: 0xff69b4, center: 0xffff00 }, // 분홍-노랑
+        { petal: 0xff0000, center: 0xffd700 }, // 빨강-금색
+        { petal: 0x9370db, center: 0xffffff }, // 보라-흰색
+        { petal: 0xffa500, center: 0xff0000 }, // 주황-빨강
+        { petal: 0x00bfff, center: 0xffff00 }  // 하늘-노랑
+    ];
 
-    for (let i = 0; i < starCount; i++) {
-        positions[i * 3] = (Math.random() - 0.5) * 100;
-        positions[i * 3 + 1] = Math.random() * 30 + 15;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
-    }
+    const flowerArray = [];
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    // 각 언덕 위에 꽃 배치
+    terrainTiles.forEach(tile => {
+        if (tile.userData.isHill && Math.random() < 0.3) { // 30% 확률로 꽃 생성
+            const colorSet = flowerColors[Math.floor(Math.random() * flowerColors.length)];
+            const flower = createFlower(colorSet.petal, colorSet.center);
 
-    const material = new THREE.PointsMaterial({
-        color: 0xffffff,
-        size: 0.2,
-        transparent: true,
-        opacity: 0.9
+            // 블록 위에 꽃 배치
+            flower.position.set(
+                tile.position.x + (Math.random() - 0.5) * 0.8,
+                tile.userData.height + 0.15,
+                tile.position.z + (Math.random() - 0.5) * 0.8
+            );
+
+            flower.rotation.y = Math.random() * Math.PI * 2;
+            flower.scale.set(0.8 + Math.random() * 0.4, 0.8 + Math.random() * 0.4, 0.8 + Math.random() * 0.4);
+
+            scene.add(flower);
+            flowerArray.push(flower);
+        }
     });
 
-    return new THREE.Points(geometry, material);
+    return flowerArray;
+}
+
+// 유성 생성 함수
+function createMeteor() {
+    const meteor = new THREE.Group();
+
+    // 유성 본체
+    const body = new THREE.Mesh(
+        new THREE.SphereGeometry(0.15, 8, 8),
+        new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            emissive: 0xffffff,
+            emissiveIntensity: 1
+        })
+    );
+    meteor.add(body);
+
+    // 꼬리 효과
+    const tailGeometry = new THREE.BufferGeometry();
+    const tailPositions = [];
+    for (let i = 0; i < 10; i++) {
+        tailPositions.push(0, i * 0.3, 0);
+    }
+    tailGeometry.setAttribute('position', new THREE.Float32BufferAttribute(tailPositions, 3));
+
+    const tailMaterial = new THREE.PointsMaterial({
+        color: 0xffaa00,
+        size: 0.2,
+        transparent: true,
+        opacity: 0.6
+    });
+
+    const tail = new THREE.Points(tailGeometry, tailMaterial);
+    meteor.add(tail);
+
+    // 랜덤 시작 위치 (하늘 높이)
+    meteor.position.set(
+        (Math.random() - 0.5) * 40,
+        25 + Math.random() * 10,
+        (Math.random() - 0.5) * 40
+    );
+
+    // 속도 저장
+    meteor.userData.velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * 5,
+        -15 - Math.random() * 5,
+        (Math.random() - 0.5) * 5
+    );
+
+    meteor.userData.lifetime = 3 + Math.random() * 2; // 3-5초 생존
+
+    return meteor;
+}
+
+// 유성우 시스템 생성
+function createMeteorShower() {
+    // 밤하늘로 변경
+    scene.background = new THREE.Color(0x000033);
+
+    // 초기 유성 몇 개 생성
+    const meteorArray = [];
+    for (let i = 0; i < 3; i++) {
+        const meteor = createMeteor();
+        scene.add(meteor);
+        meteorArray.push(meteor);
+    }
+
+    return meteorArray;
 }
 
 // 구름 생성 함수
@@ -799,7 +882,10 @@ function createTreasureChest() {
     chestBottom.castShadow = true;
     chest.add(chestBottom);
 
-    // 상자 상단 뚜껑 (갈색 나무)
+    // 상자 상단 뚜껑 (갈색 나무) - 뚜껑 그룹 생성
+    const chestTopGroup = new THREE.Group();
+    chestTopGroup.position.y = 0.1; // 회전 중심점
+
     const chestTop = new THREE.Mesh(
         new THREE.BoxGeometry(1.0, 0.4, 0.7),
         new THREE.MeshStandardMaterial({
@@ -807,11 +893,11 @@ function createTreasureChest() {
             roughness: 0.8
         })
     );
-    chestTop.position.y = 0.3;
+    chestTop.position.y = 0.2;
     chestTop.castShadow = true;
-    chest.add(chestTop);
+    chestTopGroup.add(chestTop);
 
-    // 금속 띠 (앞면)
+    // 금속 띠 (앞면) - 뚜껑에 부착
     const metalBand1 = new THREE.Mesh(
         new THREE.BoxGeometry(1.05, 0.1, 0.05),
         new THREE.MeshStandardMaterial({
@@ -820,16 +906,16 @@ function createTreasureChest() {
             roughness: 0.2
         })
     );
-    metalBand1.position.set(0, 0, 0.37);
+    metalBand1.position.set(0, 0.2, 0.37);
     metalBand1.castShadow = true;
-    chest.add(metalBand1);
+    chestTopGroup.add(metalBand1);
 
-    // 금속 띠 (뒷면)
+    // 금속 띠 (뒷면) - 뚜껑에 부착
     const metalBand2 = metalBand1.clone();
     metalBand2.position.z = -0.37;
-    chest.add(metalBand2);
+    chestTopGroup.add(metalBand2);
 
-    // 자물쇠 (금색)
+    // 자물쇠 (금색) - 뚜껑에 부착
     const lock = new THREE.Mesh(
         new THREE.BoxGeometry(0.2, 0.25, 0.15),
         new THREE.MeshStandardMaterial({
@@ -840,11 +926,111 @@ function createTreasureChest() {
             roughness: 0.2
         })
     );
-    lock.position.set(0, 0.1, 0.42);
+    lock.position.set(0, 0.2, 0.42);
     lock.castShadow = true;
-    chest.add(lock);
+    chestTopGroup.add(lock);
+
+    chest.add(chestTopGroup);
+
+    // 뚜껑을 userData에 저장하여 나중에 애니메이션할 수 있도록 함
+    chest.userData.lid = chestTopGroup;
 
     return chest;
+}
+
+// 보물상자 열기 애니메이션
+function openTreasureChest(chest, callback) {
+    const lid = chest.userData.lid;
+    const duration = 1500; // 1.5초
+    const startTime = Date.now();
+
+    // 승리 화면 오버레이 활성화
+    const victoryOverlay = document.getElementById('victory-overlay');
+    victoryOverlay.classList.add('active');
+
+    // 황금빛 포인트 라이트 생성
+    const light = new THREE.PointLight(0xffd700, 2, 10);
+    light.position.copy(chest.position);
+    light.position.y += 0.5;
+    scene.add(light);
+
+    // 황금빛 파티클 생성
+    const particleCount = 200;
+    const particles = new THREE.Group();
+    const particleGeometry = new THREE.SphereGeometry(0.05, 4, 4);
+    const particleMaterials = [];
+
+    for (let i = 0; i < particleCount; i++) {
+        const material = new THREE.MeshBasicMaterial({
+            color: new THREE.Color().setHSL(0.12 + Math.random() * 0.05, 1, 0.5 + Math.random() * 0.3),
+            transparent: true,
+            opacity: 1
+        });
+        particleMaterials.push(material);
+
+        const particle = new THREE.Mesh(particleGeometry, material);
+        particle.position.set(
+            (Math.random() - 0.5) * 0.3,
+            0,
+            (Math.random() - 0.5) * 0.3
+        );
+
+        // 각 파티클의 속도 저장
+        particle.userData.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 2,
+            2 + Math.random() * 3,
+            (Math.random() - 0.5) * 2
+        );
+
+        particles.add(particle);
+    }
+
+    particles.position.copy(chest.position);
+    particles.position.y += 0.3;
+    scene.add(particles);
+
+    // 애니메이션 함수
+    const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // 뚜껑 열기 (뒤로 회전)
+        lid.rotation.x = -progress * Math.PI * 0.7; // 약 126도 회전
+
+        // 빛 강도 증가
+        light.intensity = 2 + progress * 8;
+
+        // 파티클 이동 및 페이드아웃
+        particles.children.forEach((particle, index) => {
+            particle.position.x += particle.userData.velocity.x * 0.02;
+            particle.position.y += particle.userData.velocity.y * 0.02;
+            particle.position.z += particle.userData.velocity.z * 0.02;
+
+            // 중력 효과
+            particle.userData.velocity.y -= 0.05;
+
+            // 페이드아웃
+            particleMaterials[index].opacity = 1 - progress;
+
+            // 회전 효과
+            particle.rotation.x += 0.1;
+            particle.rotation.y += 0.1;
+        });
+
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        } else {
+            // 애니메이션 완료 후 정리
+            setTimeout(() => {
+                scene.remove(light);
+                scene.remove(particles);
+                victoryOverlay.classList.remove('active');
+                if (callback) callback();
+            }, 500);
+        }
+    };
+
+    animate();
 }
 
 // 게임 상태
@@ -1039,7 +1225,13 @@ function pickupItem() {
         const distance = playerPosition.distanceTo(treasureMesh.position);
         if (distance <= itemPickupDistance) {
             gameCleared = true;
-            showGameOver('게임 클리어!', true);
+            console.log('보물상자를 열고 있습니다...');
+
+            // 보물상자 열기 애니메이션 실행
+            openTreasureChest(treasureMesh, () => {
+                // 애니메이션 완료 후 게임 클리어 모달 표시
+                showGameOver('게임 클리어!', true);
+            });
             return;
         }
     }
@@ -1433,47 +1625,60 @@ document.addEventListener('keydown', (event) => {
             break;
         case 'Digit1':
             event.preventDefault();
-            // 황금 코인을 가지고 있으면 사용 (여러 번 가능)
+            // 황금 코인을 가지고 있으면 토글 (켜기/끄기)
             if (inventory.includes('황금 코인')) {
-                if (goldenParticles) {
-                    scene.remove(goldenParticles);
+                if (hasUsedCoin) {
+                    // 끄기
+                    if (goldenParticles) {
+                        scene.remove(goldenParticles);
+                        goldenParticles = null;
+                    }
+                    hasUsedCoin = false;
+                    console.log('황금 파티클을 껐습니다!');
+                } else {
+                    // 켜기
+                    goldenParticles = createGoldenParticles();
+                    scene.add(goldenParticles);
+                    hasUsedCoin = true;
+                    console.log('황금 파티클이 바닥에 생성되었습니다!');
                 }
-                goldenParticles = createGoldenParticles();
-                scene.add(goldenParticles);
-                console.log('황금 파티클이 바닥에 생성되었습니다!');
             }
             break;
         case 'Digit2':
             event.preventDefault();
-            // 마법 수정을 가지고 있으면 사용 (여러 번 가능)
+            // 마법 수정을 가지고 있으면 토글 (꽃밭 켜기/끄기)
             if (inventory.includes('마법 수정')) {
-                if (sunMesh) {
-                    scene.remove(sunMesh);
+                if (hasUsedCrystal) {
+                    // 끄기
+                    flowers.forEach(flower => scene.remove(flower));
+                    flowers = [];
+                    hasUsedCrystal = false;
+                    console.log('꽃밭을 지웠습니다!');
+                } else {
+                    // 켜기
+                    flowers = createFlowerGarden();
+                    hasUsedCrystal = true;
+                    console.log('언덕에 아름다운 꽃밭이 생겼습니다!');
                 }
-                sunMesh = createSun();
-                scene.add(sunMesh);
-                console.log('하늘에 태양이 생성되었습니다!');
             }
             break;
         case 'Digit3':
             event.preventDefault();
-            // 요술지팡이를 가지고 있으면 사용 (여러 번 가능)
+            // 요술지팡이를 가지고 있으면 토글 (유성우 켜기/끄기)
             if (inventory.includes('요술지팡이')) {
-                // 하늘을 밤하늘로 변경
-                scene.background = new THREE.Color(0x000033);
-                if (moonMesh) {
-                    scene.remove(moonMesh);
+                if (hasUsedWand) {
+                    // 끄기
+                    meteors.forEach(meteor => scene.remove(meteor));
+                    meteors = [];
+                    scene.background = new THREE.Color(0x87ceeb); // 하늘색으로 복구
+                    hasUsedWand = false;
+                    console.log('유성우를 멈췄습니다! 낮으로 돌아왔습니다!');
+                } else {
+                    // 켜기
+                    meteors = createMeteorShower();
+                    hasUsedWand = true;
+                    console.log('밤하늘에 유성우가 떨어집니다!');
                 }
-                if (stars) {
-                    scene.remove(stars);
-                }
-                // 달 생성
-                moonMesh = createMoon();
-                scene.add(moonMesh);
-                // 별들 생성
-                stars = createStars();
-                scene.add(stars);
-                console.log('밤하늘이 되었습니다! 달과 별이 나타났습니다!');
             }
             break;
     }
@@ -1557,14 +1762,35 @@ function animate() {
         treasureMesh.scale.set(treasurePulse, treasurePulse, treasurePulse);
     }
 
-    // 태양 회전 효과
-    if (sunMesh) {
-        sunMesh.rotation.y += 0.003;
-        // 태양 광채 펄스 효과
-        const glowScale = 1 + Math.sin(time * 0.001) * 0.1;
-        if (sunMesh.children[1]) {
-            sunMesh.children[1].scale.set(glowScale, glowScale, glowScale);
-        }
+    // 꽃 흔들리는 효과
+    flowers.forEach((flower, index) => {
+        const sway = Math.sin(time * 0.002 + index) * 0.05;
+        flower.rotation.z = sway;
+        flower.rotation.x = sway * 0.5;
+    });
+
+    // 유성우 애니메이션
+    if (hasUsedWand && meteors.length > 0) {
+        meteors.forEach((meteor, index) => {
+            // 유성 이동
+            meteor.position.x += meteor.userData.velocity.x * delta;
+            meteor.position.y += meteor.userData.velocity.y * delta;
+            meteor.position.z += meteor.userData.velocity.z * delta;
+
+            // 회전 효과
+            meteor.rotation.z += 0.1;
+
+            // 수명 감소
+            meteor.userData.lifetime -= delta;
+
+            // 수명이 다하거나 지면에 닿으면 제거하고 새로 생성
+            if (meteor.userData.lifetime <= 0 || meteor.position.y <= 0) {
+                scene.remove(meteor);
+                const newMeteor = createMeteor();
+                scene.add(newMeteor);
+                meteors[index] = newMeteor;
+            }
+        });
     }
 
     // 구름 이동 효과
@@ -1810,18 +2036,15 @@ window.startGame = function(difficulty) {
         scene.remove(goldenParticles);
         goldenParticles = null;
     }
-    if (sunMesh) {
-        scene.remove(sunMesh);
-        sunMesh = null;
-    }
-    if (moonMesh) {
-        scene.remove(moonMesh);
-        moonMesh = null;
-    }
-    if (stars) {
-        scene.remove(stars);
-        stars = null;
-    }
+
+    // 꽃 제거
+    flowers.forEach(flower => scene.remove(flower));
+    flowers = [];
+
+    // 유성 제거
+    meteors.forEach(meteor => scene.remove(meteor));
+    meteors = [];
+
     // 기존 구름 제거
     clouds.forEach(cloud => scene.remove(cloud));
     clouds = [];
