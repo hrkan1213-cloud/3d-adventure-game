@@ -1592,6 +1592,13 @@ function animate() {
                     enemy.lastAttackTime = time;
                     updateHealthUI();
 
+                    // 피격 효과 추가
+                    const overlay = document.getElementById('hit-overlay');
+                    overlay.classList.add('hit');
+                    setTimeout(() => {
+                        overlay.classList.remove('hit');
+                    }, 500);
+
                     // 플레이어 체력이 0이 되면 게임 오버
                     if (playerHealth <= 0) {
                         showGameOver('게임 오버!', false);
