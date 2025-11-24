@@ -7,7 +7,7 @@ scene.background = new THREE.Color(0x87ceeb); // 하늘색 배경
 // 게임 컨테이너 가져오기
 const gameContainer = document.getElementById('game-container');
 const gameWidth = window.innerWidth;
-const gameHeight = window.innerHeight * 0.7; // 하단 70%
+const gameHeight = window.innerHeight; // 전체 화면
 
 const camera = new THREE.PerspectiveCamera(
     90,  // 시야각을 90도로 넓게 변경
@@ -195,6 +195,9 @@ scene.add(cube);
 let enemies = [];
 const enemySpeed = 0.8; // 적 이동 속도 감소
 
+// 플레이어 캐릭터
+let playerCharacter = null;
+
 // 마인크래프트 스타일 적 캐릭터 생성 함수
 function createEnemyCharacter() {
     const enemy = new THREE.Group();
@@ -264,6 +267,78 @@ function createEnemyCharacter() {
     enemy.userData.rightLeg = rightLeg;
 
     return enemy;
+}
+
+// 마인크래프트 스타일 플레이어 캐릭터 생성 함수
+function createPlayerCharacter() {
+    const player = new THREE.Group();
+
+    // 재질 정의
+    const blueMaterial = new THREE.MeshStandardMaterial({ color: 0x3366ff });
+    const darkBlueMaterial = new THREE.MeshStandardMaterial({ color: 0x2255ee });
+    const lightBlueMaterial = new THREE.MeshStandardMaterial({ color: 0x1144dd });
+
+    // 머리 (0.4 x 0.4 x 0.4)
+    const head = new THREE.Mesh(
+        new THREE.BoxGeometry(0.4, 0.4, 0.4),
+        blueMaterial
+    );
+    head.position.y = 0.6;
+    head.castShadow = true;
+    player.add(head);
+
+    // 몸통 (0.4 x 0.6 x 0.3)
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(0.4, 0.6, 0.3),
+        darkBlueMaterial
+    );
+    body.position.y = 0.1;
+    body.castShadow = true;
+    player.add(body);
+
+    // 왼쪽 팔 (0.2 x 0.5 x 0.2)
+    const leftArm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.5, 0.2),
+        lightBlueMaterial
+    );
+    leftArm.position.set(-0.3, 0.15, 0);
+    leftArm.castShadow = true;
+    player.add(leftArm);
+
+    // 오른쪽 팔 (0.2 x 0.5 x 0.2)
+    const rightArm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.5, 0.2),
+        lightBlueMaterial
+    );
+    rightArm.position.set(0.3, 0.15, 0);
+    rightArm.castShadow = true;
+    player.add(rightArm);
+
+    // 왼쪽 다리 (0.2 x 0.5 x 0.2)
+    const leftLeg = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.5, 0.2),
+        lightBlueMaterial
+    );
+    leftLeg.position.set(-0.1, -0.45, 0);
+    leftLeg.castShadow = true;
+    player.add(leftLeg);
+
+    // 오른쪽 다리 (0.2 x 0.5 x 0.2)
+    const rightLeg = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.5, 0.2),
+        lightBlueMaterial
+    );
+    rightLeg.position.set(0.1, -0.45, 0);
+    rightLeg.castShadow = true;
+    player.add(rightLeg);
+
+    // 애니메이션용 부위 저장
+    player.userData.leftArm = leftArm;
+    player.userData.rightArm = rightArm;
+    player.userData.leftLeg = leftLeg;
+    player.userData.rightLeg = rightLeg;
+
+    return player;
 }
 
 // 난이도 설정
@@ -837,13 +912,15 @@ const gravity = -15; // 중력 가속도
 const jumpSpeed = 6; // 점프 속도
 const playerEyeHeight = 1.6; // 플레이어 눈 높이
 
-// 카메라 위치 업데이트 함수 (1인칭 시점)
+// 카메라 위치 업데이트 함수 (3인칭 시점)
 function updateCameraPosition() {
-    // 카메라를 플레이어 위치에 배치
-    camera.position.copy(playerPosition);
-    camera.rotation.x = playerPitch;
-    camera.rotation.y = playerRotation;
-    camera.rotation.order = 'YXZ'; // Y축 회전을 먼저 적용
+    // 카메라를 플레이어 뒤에서 따라가도록 배치
+    camera.position.set(
+        playerPosition.x,
+        playerPosition.y + 3,
+        playerPosition.z + 5
+    );
+    camera.lookAt(playerPosition);
 }
 
 // 미니맵 설정
@@ -851,7 +928,7 @@ const minimapCanvas = document.getElementById('minimap-canvas');
 const minimapCtx = minimapCanvas.getContext('2d');
 
 // 미니맵 크기 설정
-const minimapSize = 300;
+const minimapSize = 180;
 minimapCanvas.width = minimapSize;
 minimapCanvas.height = minimapSize;
 
@@ -976,17 +1053,14 @@ function pickupItem() {
             console.log('검 생성:', playerWeaponMesh);
             console.log('검 자식 객체 수:', playerWeaponMesh.children.length);
 
-            // 카메라 기준: X=오른쪽, Y=위, Z=뒤(음수가 앞)
-            playerWeaponMesh.position.set(0.5, -0.5, -0.8); // 오른쪽 아래 앞쪽에 배치
-            playerWeaponMesh.rotation.set(Math.PI / 4, Math.PI / 8, Math.PI / 6); // 자연스러운 각도
-            playerWeaponMesh.scale.set(1.5, 1.5, 1.5); // 1.5배 크기로 더 잘 보이게
-            camera.add(playerWeaponMesh);
+            // 플레이어 오른팔에 검 장착
+            playerWeaponMesh.position.set(0, -0.3, 0); // 손 위치 조정
+            playerWeaponMesh.rotation.set(0, 0, -Math.PI / 2); // 손에 쥔 각도
+            playerCharacter.userData.rightArm.add(playerWeaponMesh);
 
-            console.log('검이 카메라에 추가됨. 카메라 자식 수:', camera.children.length);
+            console.log('검이 플레이어 오른팔에 추가됨');
             console.log('검 로컬 위치:', playerWeaponMesh.position);
             console.log('검 월드 위치:', playerWeaponMesh.getWorldPosition(new THREE.Vector3()));
-            console.log('카메라 위치:', camera.position);
-            console.log('카메라 회전:', camera.rotation);
 
             updateWeaponUI();
             console.log(`${weaponMesh.weaponName} 습득! 공격력이 증가했습니다!`);
@@ -1421,7 +1495,7 @@ document.addEventListener('keyup', (event) => {
 // 윈도우 리사이즈 처리
 window.addEventListener('resize', () => {
     const newWidth = window.innerWidth;
-    const newHeight = window.innerHeight * 0.7;
+    const newHeight = window.innerHeight;
 
     camera.aspect = newWidth / newHeight;
     camera.updateProjectionMatrix();
@@ -1640,6 +1714,13 @@ function animate() {
 
         // 카메라 위치 업데이트
         updateCameraPosition();
+
+        // 플레이어 캐릭터 위치 및 회전 동기화
+        if (playerCharacter) {
+            playerCharacter.position.copy(playerPosition);
+            playerCharacter.position.y -= playerEyeHeight; // 눈 높이만큼 내림 (발을 지면에)
+            playerCharacter.rotation.y = playerRotation;
+        }
     }
 
     prevTime = time;
@@ -1714,7 +1795,9 @@ window.startGame = function(difficulty) {
 
     // 플레이어가 들고 있던 검 제거
     if (playerWeaponMesh) {
-        camera.remove(playerWeaponMesh);
+        if (playerCharacter && playerCharacter.userData.rightArm) {
+            playerCharacter.userData.rightArm.remove(playerWeaponMesh);
+        }
         playerWeaponMesh = null;
     }
     isAttacking = false;
@@ -1733,6 +1816,13 @@ window.startGame = function(difficulty) {
     createGameObjects();
     createEnemies(difficulty);
 
+    // 플레이어 캐릭터 생성 및 추가
+    if (playerCharacter) {
+        scene.remove(playerCharacter);
+    }
+    playerCharacter = createPlayerCharacter();
+    scene.add(playerCharacter);
+
     // UI 업데이트
     updateHealthUI();
     updateInventoryUI();
@@ -1749,7 +1839,9 @@ window.restartGame = function() {
 
     // 플레이어가 들고 있던 검 제거
     if (playerWeaponMesh) {
-        camera.remove(playerWeaponMesh);
+        if (playerCharacter && playerCharacter.userData.rightArm) {
+            playerCharacter.userData.rightArm.remove(playerWeaponMesh);
+        }
         playerWeaponMesh = null;
     }
     isAttacking = false;
