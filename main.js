@@ -882,7 +882,10 @@ function createTreasureChest() {
     chestBottom.castShadow = true;
     chest.add(chestBottom);
 
-    // 상자 상단 뚜껑 (갈색 나무)
+    // 상자 상단 뚜껑 (갈색 나무) - 뚜껑 그룹 생성
+    const chestTopGroup = new THREE.Group();
+    chestTopGroup.position.y = 0.1; // 회전 중심점
+
     const chestTop = new THREE.Mesh(
         new THREE.BoxGeometry(1.0, 0.4, 0.7),
         new THREE.MeshStandardMaterial({
@@ -890,11 +893,11 @@ function createTreasureChest() {
             roughness: 0.8
         })
     );
-    chestTop.position.y = 0.3;
+    chestTop.position.y = 0.2;
     chestTop.castShadow = true;
-    chest.add(chestTop);
+    chestTopGroup.add(chestTop);
 
-    // 금속 띠 (앞면)
+    // 금속 띠 (앞면) - 뚜껑에 부착
     const metalBand1 = new THREE.Mesh(
         new THREE.BoxGeometry(1.05, 0.1, 0.05),
         new THREE.MeshStandardMaterial({
@@ -903,16 +906,16 @@ function createTreasureChest() {
             roughness: 0.2
         })
     );
-    metalBand1.position.set(0, 0, 0.37);
+    metalBand1.position.set(0, 0.2, 0.37);
     metalBand1.castShadow = true;
-    chest.add(metalBand1);
+    chestTopGroup.add(metalBand1);
 
-    // 금속 띠 (뒷면)
+    // 금속 띠 (뒷면) - 뚜껑에 부착
     const metalBand2 = metalBand1.clone();
     metalBand2.position.z = -0.37;
-    chest.add(metalBand2);
+    chestTopGroup.add(metalBand2);
 
-    // 자물쇠 (금색)
+    // 자물쇠 (금색) - 뚜껑에 부착
     const lock = new THREE.Mesh(
         new THREE.BoxGeometry(0.2, 0.25, 0.15),
         new THREE.MeshStandardMaterial({
@@ -923,11 +926,111 @@ function createTreasureChest() {
             roughness: 0.2
         })
     );
-    lock.position.set(0, 0.1, 0.42);
+    lock.position.set(0, 0.2, 0.42);
     lock.castShadow = true;
-    chest.add(lock);
+    chestTopGroup.add(lock);
+
+    chest.add(chestTopGroup);
+
+    // 뚜껑을 userData에 저장하여 나중에 애니메이션할 수 있도록 함
+    chest.userData.lid = chestTopGroup;
 
     return chest;
+}
+
+// 보물상자 열기 애니메이션
+function openTreasureChest(chest, callback) {
+    const lid = chest.userData.lid;
+    const duration = 1500; // 1.5초
+    const startTime = Date.now();
+
+    // 승리 화면 오버레이 활성화
+    const victoryOverlay = document.getElementById('victory-overlay');
+    victoryOverlay.classList.add('active');
+
+    // 황금빛 포인트 라이트 생성
+    const light = new THREE.PointLight(0xffd700, 2, 10);
+    light.position.copy(chest.position);
+    light.position.y += 0.5;
+    scene.add(light);
+
+    // 황금빛 파티클 생성
+    const particleCount = 200;
+    const particles = new THREE.Group();
+    const particleGeometry = new THREE.SphereGeometry(0.05, 4, 4);
+    const particleMaterials = [];
+
+    for (let i = 0; i < particleCount; i++) {
+        const material = new THREE.MeshBasicMaterial({
+            color: new THREE.Color().setHSL(0.12 + Math.random() * 0.05, 1, 0.5 + Math.random() * 0.3),
+            transparent: true,
+            opacity: 1
+        });
+        particleMaterials.push(material);
+
+        const particle = new THREE.Mesh(particleGeometry, material);
+        particle.position.set(
+            (Math.random() - 0.5) * 0.3,
+            0,
+            (Math.random() - 0.5) * 0.3
+        );
+
+        // 각 파티클의 속도 저장
+        particle.userData.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 2,
+            2 + Math.random() * 3,
+            (Math.random() - 0.5) * 2
+        );
+
+        particles.add(particle);
+    }
+
+    particles.position.copy(chest.position);
+    particles.position.y += 0.3;
+    scene.add(particles);
+
+    // 애니메이션 함수
+    const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // 뚜껑 열기 (뒤로 회전)
+        lid.rotation.x = -progress * Math.PI * 0.7; // 약 126도 회전
+
+        // 빛 강도 증가
+        light.intensity = 2 + progress * 8;
+
+        // 파티클 이동 및 페이드아웃
+        particles.children.forEach((particle, index) => {
+            particle.position.x += particle.userData.velocity.x * 0.02;
+            particle.position.y += particle.userData.velocity.y * 0.02;
+            particle.position.z += particle.userData.velocity.z * 0.02;
+
+            // 중력 효과
+            particle.userData.velocity.y -= 0.05;
+
+            // 페이드아웃
+            particleMaterials[index].opacity = 1 - progress;
+
+            // 회전 효과
+            particle.rotation.x += 0.1;
+            particle.rotation.y += 0.1;
+        });
+
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        } else {
+            // 애니메이션 완료 후 정리
+            setTimeout(() => {
+                scene.remove(light);
+                scene.remove(particles);
+                victoryOverlay.classList.remove('active');
+                if (callback) callback();
+            }, 500);
+        }
+    };
+
+    animate();
 }
 
 // 게임 상태
@@ -1122,7 +1225,13 @@ function pickupItem() {
         const distance = playerPosition.distanceTo(treasureMesh.position);
         if (distance <= itemPickupDistance) {
             gameCleared = true;
-            showGameOver('게임 클리어!', true);
+            console.log('보물상자를 열고 있습니다...');
+
+            // 보물상자 열기 애니메이션 실행
+            openTreasureChest(treasureMesh, () => {
+                // 애니메이션 완료 후 게임 클리어 모달 표시
+                showGameOver('게임 클리어!', true);
+            });
             return;
         }
     }
