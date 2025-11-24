@@ -10,7 +10,7 @@ const gameWidth = window.innerWidth;
 const gameHeight = window.innerHeight; // 전체 화면
 
 const camera = new THREE.PerspectiveCamera(
-    90,  // 시야각을 90도로 넓게 변경
+    65,  // 3인칭 시점에 적합한 시야각 (FOV)
     gameWidth / gameHeight,
     0.1,
     1000
