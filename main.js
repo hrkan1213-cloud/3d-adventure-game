@@ -337,6 +337,7 @@ function createPlayerCharacter() {
     player.userData.rightArm = rightArm;
     player.userData.leftLeg = leftLeg;
     player.userData.rightLeg = rightLeg;
+    player.userData.walkCycle = 0;
 
     return player;
 }
@@ -1518,19 +1519,19 @@ function animate() {
 
     // 아이템 떠다니는 효과
     items.forEach((item) => {
-        item.position.y = 0.3 + Math.sin(time * 0.002) * 0.1;
+        item.position.y = 0.8 + Math.sin(time * 0.002) * 0.1;
         item.rotation.y += 0.02;
     });
 
     // 무기 떠다니는 효과
     if (weaponMesh && !equippedWeapon) {
-        weaponMesh.position.y = 0.4 + Math.sin(time * 0.003) * 0.1;
+        weaponMesh.position.y = 0.9 + Math.sin(time * 0.003) * 0.1;
         weaponMesh.rotation.y += 0.01;
     }
 
     // 열쇠 떠다니는 효과
     if (keyMesh && !hasKey) {
-        keyMesh.position.y = 0.25 + Math.sin(time * 0.0025) * 0.15;
+        keyMesh.position.y = 0.8 + Math.sin(time * 0.0025) * 0.15;
         keyMesh.rotation.y += 0.015;
     }
 
@@ -1538,7 +1539,7 @@ function animate() {
     if (treasureMesh && !gameCleared) {
         treasureMesh.rotation.y += 0.005;
         // 보물상자 위아래 떠다니는 효과
-        treasureMesh.position.y = 0.6 + Math.sin(time * 0.002) * 0.05;
+        treasureMesh.position.y = 1.0 + Math.sin(time * 0.002) * 0.05;
     }
 
     // 태양 회전 효과
@@ -1718,8 +1719,19 @@ function animate() {
         // 플레이어 캐릭터 위치 및 회전 동기화
         if (playerCharacter) {
             playerCharacter.position.copy(playerPosition);
-            playerCharacter.position.y -= playerEyeHeight; // 눈 높이만큼 내림 (발을 지면에)
+            playerCharacter.position.y -= (playerEyeHeight - 0.7); // 발이 지면에 오도록 조정
             playerCharacter.rotation.y = playerRotation;
+
+            // 이동 중일 때만 걷기 애니메이션
+            if (moveX !== 0 || moveZ !== 0) {
+                playerCharacter.userData.walkCycle += delta * 5;
+                const swing = Math.sin(playerCharacter.userData.walkCycle) * 0.3;
+
+                playerCharacter.userData.leftArm.rotation.x = swing;
+                playerCharacter.userData.rightArm.rotation.x = -swing;
+                playerCharacter.userData.leftLeg.rotation.x = -swing;
+                playerCharacter.userData.rightLeg.rotation.x = swing;
+            }
         }
     }
 
