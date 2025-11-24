@@ -7,7 +7,7 @@ scene.background = new THREE.Color(0x87ceeb); // 하늘색 배경
 // 게임 컨테이너 가져오기
 const gameContainer = document.getElementById('game-container');
 const gameWidth = window.innerWidth;
-const gameHeight = window.innerHeight * 0.7; // 하단 70%
+const gameHeight = window.innerHeight; // 전체 화면
 
 const camera = new THREE.PerspectiveCamera(
     90,  // 시야각을 90도로 넓게 변경
@@ -928,7 +928,7 @@ const minimapCanvas = document.getElementById('minimap-canvas');
 const minimapCtx = minimapCanvas.getContext('2d');
 
 // 미니맵 크기 설정
-const minimapSize = 300;
+const minimapSize = 180;
 minimapCanvas.width = minimapSize;
 minimapCanvas.height = minimapSize;
 
@@ -1495,7 +1495,7 @@ document.addEventListener('keyup', (event) => {
 // 윈도우 리사이즈 처리
 window.addEventListener('resize', () => {
     const newWidth = window.innerWidth;
-    const newHeight = window.innerHeight * 0.7;
+    const newHeight = window.innerHeight;
 
     camera.aspect = newWidth / newHeight;
     camera.updateProjectionMatrix();
