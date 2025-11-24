@@ -393,8 +393,8 @@ function createGoldenCoin() {
         new THREE.CylinderGeometry(0.25, 0.25, 0.05, 16),
         new THREE.MeshStandardMaterial({
             color: 0xffd700,
-            emissive: 0xffaa00,
-            emissiveIntensity: 0.3,
+            emissive: 0xffd700,
+            emissiveIntensity: 0.5,
             metalness: 0.8,
             roughness: 0.2
         })
@@ -424,7 +424,7 @@ function createCrystal() {
 
     const crystalMaterial = new THREE.MeshStandardMaterial({
         color: 0x00ffff,
-        emissive: 0x0088ff,
+        emissive: 0x00ffff,
         emissiveIntensity: 0.5,
         metalness: 0.3,
         roughness: 0.2,
@@ -481,9 +481,9 @@ function createMagicWand() {
     const gem = new THREE.Mesh(
         new THREE.OctahedronGeometry(0.12, 0),
         new THREE.MeshStandardMaterial({
-            color: 0x9400d3,
-            emissive: 0x6a0dad,
-            emissiveIntensity: 0.6,
+            color: 0x9b59b6,
+            emissive: 0x9b59b6,
+            emissiveIntensity: 0.5,
             metalness: 0.3,
             roughness: 0.2
         })
@@ -1521,18 +1521,27 @@ function animate() {
     items.forEach((item) => {
         item.position.y = 0.8 + Math.sin(time * 0.002) * 0.1;
         item.rotation.y += 0.02;
+        // 맥박 애니메이션
+        const pulse = 1 + Math.sin(time * 0.002) * 0.1;
+        item.scale.set(pulse, pulse, pulse);
     });
 
     // 무기 떠다니는 효과
     if (weaponMesh && !equippedWeapon) {
         weaponMesh.position.y = 0.9 + Math.sin(time * 0.003) * 0.1;
         weaponMesh.rotation.y += 0.01;
+        // 맥박 애니메이션
+        const weaponPulse = 1 + Math.sin(time * 0.002) * 0.1;
+        weaponMesh.scale.set(weaponPulse, weaponPulse, weaponPulse);
     }
 
     // 열쇠 떠다니는 효과
     if (keyMesh && !hasKey) {
         keyMesh.position.y = 0.8 + Math.sin(time * 0.0025) * 0.15;
         keyMesh.rotation.y += 0.015;
+        // 맥박 애니메이션
+        const keyPulse = 1 + Math.sin(time * 0.002) * 0.1;
+        keyMesh.scale.set(keyPulse, keyPulse, keyPulse);
     }
 
     // 보물상자 빛나는 효과
@@ -1540,6 +1549,9 @@ function animate() {
         treasureMesh.rotation.y += 0.005;
         // 보물상자 위아래 떠다니는 효과
         treasureMesh.position.y = 1.0 + Math.sin(time * 0.002) * 0.05;
+        // 맥박 애니메이션
+        const treasurePulse = 1 + Math.sin(time * 0.002) * 0.08;
+        treasureMesh.scale.set(treasurePulse, treasurePulse, treasurePulse);
     }
 
     // 태양 회전 효과
